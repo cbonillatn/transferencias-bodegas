@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Transferencias — TELCONET</title>
+
+<style>
+:root{
+  --bg:            #0f1216;
+  --bg-elev:       #171b21;
+  --panel:         #1c2129;
+  --panel-2:       #232933;
+  --line:          #2b323d;
+  --text:          #e7eaee;
+  --muted:         #8b93a1;
+  --amber:         #ff8a34;
+  --teal:          #2dd4bf;
+  --red:           #ef4444;
+  --red-dim:       #3a1f22;
+  --blue:          #5b8def;
+  --font-display:  'Oswald', 'Barlow Condensed', sans-serif;
+  --font-body:     'Inter', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Courier New', monospace;
+  --radius: 6px;
+}
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{background:var(--bg); color:var(--text); font-family:var(--font-body); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;}
+::selection{background:var(--amber); color:#111;}
+a{color:var(--amber); text-decoration:none;}
+button{font-family:var(--font-body); cursor:pointer;}
+input,select,textarea{font-family:var(--font-body); background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:var(--radius); padding:9px 11px; font-size:13.5px; width:100%;}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--amber);}
+label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:5px; font-weight:600;}
+.field{margin-bottom:14px;}
+h1,h2,h3{font-family:var(--font-display); font-weight:600; letter-spacing:.01em;}
+.hazard-strip{height:5px; width:100%; background:repeating-linear-gradient(135deg, var(--amber) 0 14px, #1a1d22 14px 28px); opacity:.85;}
+#login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle at 20% 20%, rgba(255,138,52,.06), transparent 40%), var(--bg); flex-direction:column;}
+.login-box{width:380px; max-width:90vw; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+.login-head{padding:26px 26px 18px;}
+.login-head .eyebrow{font-family:var(--font-mono); font-size:11px; color:var(--amber); letter-spacing:.15em; text-transform:uppercase;}
+.login-head h1{font-size:26px; margin-top:6px;}
+.login-body{padding:0 26px 26px;}
+.tabs{display:flex; border-bottom:1px solid var(--line); margin:0 26px;}
+.tab{flex:1; text-align:center; padding:11px 0; color:var(--muted); font-weight:600; font-size:13px; border-bottom:2px solid transparent; cursor:pointer;}
+.tab.active{color:var(--text); border-color:var(--amber);}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; background:var(--amber); color:#14100b; border:none; padding:10px 16px; border-radius:var(--radius); font-weight:600; font-size:13.5px; transition:filter .15s;}
+.btn:hover{filter:brightness(1.08);}
+.btn.secondary{background:var(--panel-2); color:var(--text); border:1px solid var(--line);}
+.btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line);}
+.btn.block{width:100%;}
+.btn.sm{padding:6px 10px; font-size:12px;}
+.err{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
+#app{display:none; min-height:100vh; grid-template-columns:230px 1fr;}
+#app.show{display:grid;}
+.sidebar{background:var(--bg-elev); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:18px 0;}
+.brand{padding:0 20px 18px; border-bottom:1px solid var(--line); margin-bottom:14px;}
+.brand .eyebrow{font-family:var(--font-mono); font-size:10px; color:var(--amber); letter-spacing:.15em;}
+.brand h1{font-size:19px; margin-top:4px;}
+.nav-item{display:flex; align-items:center; gap:10px; padding:11px 20px; color:var(--muted); font-weight:500; cursor:pointer; border-left:3px solid transparent; font-size:13.5px;}
+.nav-item:hover{color:var(--text); background:rgba(255,255,255,.02);}
+.nav-item.active{color:var(--text); border-color:var(--amber); background:rgba(255,138,52,.06);}
+.nav-spacer{flex:1;}
+.user-card{padding:14px 20px; border-top:1px solid var(--line); font-size:12.5px;}
+.user-card .name{font-weight:600;}
+.user-card .role{color:var(--muted); text-transform:capitalize;}
+.main{padding:26px 32px; overflow-y:auto; max-height:100vh;}
+.view{display:none;}
+.view.active{display:block;}
+.view-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;}
+.view-head h2{font-size:24px;}
+.view-head .sub{color:var(--muted); font-size:12.5px; margin-top:2px;}
+.grid-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:24px;}
+.stat-card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+.stat-card .num{font-family:var(--font-mono); font-size:28px; font-weight:700;}
+.stat-card .lbl{color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; margin-top:2px;}
+.stat-card.alert .num{color:var(--red);}
+.stat-card.ok .num{color:var(--teal);}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:20px; margin-bottom:20px;}
+.panel h3{font-size:15px; margin-bottom:14px;}
+.form-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.form-row.three{grid-template-columns:1fr 1fr 1fr;}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:9px 10px; border-bottom:1px solid var(--line);}
+td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+tr.row-overdue td{background:var(--red-dim);}
+tr:hover td{background:rgba(255,255,255,.02);}
+.ts-code{font-family:var(--font-mono); font-weight:700; letter-spacing:.02em;}
+.pill{display:inline-block; padding:3px 9px; border-radius:99px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;}
+.pill.creado,.pill.asignado{background:#5b8def22; color:var(--blue);}
+.pill.en_ruta{background:#ff8a3422; color:var(--amber);}
+.pill.entregado_transportista{background:#ffd23422; color:#ffd234;}
+.pill.confirmado{background:#2dd4bf22; color:var(--teal);}
+.pill.con_reclamo{background:#ef444422; color:var(--red);}
+.ts-timeline{display:flex; align-items:center; gap:0; margin:4px 0 2px;}
+.tl-node{display:flex; flex-direction:column; align-items:center; min-width:64px; position:relative;}
+.tl-dot{width:11px; height:11px; border-radius:50%; background:var(--line); border:2px solid var(--line); z-index:1;}
+.tl-node.done .tl-dot{background:var(--amber); border-color:var(--amber);}
+.tl-node.late .tl-dot{background:var(--red); border-color:var(--red);}
+.tl-line{flex:1; height:2px; background:var(--line); margin-top:5.5px;}
+.tl-line.done{background:var(--amber);}
+.tl-label{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:6px; text-align:center;}
+.tl-time{font-family:var(--font-mono); font-size:9px; color:var(--muted); margin-top:2px;}
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(6,7,9,.7); align-items:center; justify-content:center; z-index:50; padding:20px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel); border:1px solid var(--line); border-radius:10px; width:560px; max-width:100%; max-height:88vh; overflow-y:auto;}
+.modal-head{display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--line);}
+.modal-head h3{font-size:16px;}
+.modal-close{background:none;border:none;color:var(--muted); font-size:20px; line-height:1;}
+.thumb-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+.thumb-row img{width:84px; height:84px; object-fit:cover; border-radius:6px; border:1px solid var(--line); cursor:pointer; background:var(--panel-2);}
+.chat-box{max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; padding-right:4px;}
+.chat-msg{background:var(--panel-2); padding:8px 10px; border-radius:6px; font-size:12.5px; max-width:85%;}
+.chat-msg .who{font-weight:700; color:var(--amber); font-size:10.5px; text-transform:uppercase; margin-bottom:2px;}
+.chat-msg .when{color:var(--muted); font-size:9.5px; margin-top:3px;}
+.empty-state{text-align:center; padding:40px 20px; color:var(--muted);}
+.empty-state .big{font-family:var(--font-display); font-size:16px; color:var(--text); margin-bottom:6px;}
+.toast{position:fixed; bottom:22px; right:22px; background:var(--panel); border:1px solid var(--amber); color:var(--text); padding:12px 18px; border-radius:8px; font-size:13px; z-index:100; display:none; max-width:320px;}
+.toast.show{display:block;}
+.help{font-size:11.5px; color:var(--muted); margin-top:4px;}
+.section-eyebrow{font-family:var(--font-mono); font-size:10.5px; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; margin-bottom:4px;}
+.spinner{display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.25); border-top-color:var(--amber); border-radius:50%; animation:spin .7s linear infinite; margin-right:6px; vertical-align:-2px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media(max-width:820px){
+  #app.show{grid-template-columns:1fr;}
+  .sidebar{position:fixed; bottom:0; left:0; right:0; top:auto; flex-direction:row; overflow-x:auto; padding:6px; z-index:40; height:64px;}
+  .brand,.user-card{display:none;}
+  .nav-item{flex-direction:column; gap:2px; padding:6px 12px; font-size:10px; border-left:none; border-top:3px solid transparent; white-space:nowrap;}
+  .nav-item.active{border-color:var(--amber);}
+  .main{padding:18px 16px 90px;}
+  .form-row,.form-row.three{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="hazard-strip" style="position:fixed; top:0;"></div>
+  <div class="login-box">
+    <div class="login-head">
+      <div class="eyebrow">Control de Transferencias</div>
+      <h1>TELCONET · Bodegas</h1>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="login" onclick="switchAuthTab('login')">Ingresar</div>
+      <div class="tab" data-tab="register" onclick="switchAuthTab('register')">Crear cuenta</div>
+    </div>
+    <div class="login-body">
+      <form id="form-login" style="padding-top:18px;" onsubmit="return doLogin(event)">
+        <div class="field"><label>Correo</label><input type="email" id="login-email" required></div>
+        <div class="field"><label>Contraseña</label><input type="password" id="login-pass" required></div>
+        <button class="btn block" type="submit">Ingresar</button>
+        <div class="err" id="login-err"></div>
+      </form>
+      <form id="form-register" style="display:none; padding-top:18px;" onsubmit="return doRegister(event)">
+        <div class="field"><label>Nombre completo</label><input type="text" id="reg-name" required></div>
+        <div class="field"><label>Correo</label><input type="email" id="reg-email" required></div>
+        <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" minlength="4" required></div>
+        <div class="field">
+          <label>Rol principal (el administrador puede añadir más luego)</label>
+          <select id="reg-role">
+            <option value="remitente">Remitente / Receptor de bodega</option>
+            <option value="transportista">Transportista</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <button class="btn block" type="submit">Crear cuenta</button>
+        <div class="err" id="register-err"></div>
+        <div class="help">Un remitente también puede ser receptor — los roles no son excluyentes.</div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="eyebrow">Bodegas · TELCONET</div>
+      <h1>Transferencias</h1>
+    </div>
+    <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">📊 Dashboard</div>
+    <div class="nav-item" data-view="nueva" onclick="showView('nueva')">📦 Nueva transferencia</div>
+    <div class="nav-item" data-view="historial" onclick="showView('historial')">🗂️ Historial</div>
+    <div class="nav-item" data-view="ruta" onclick="showView('ruta')">🚚 Mi ruta</div>
+    <div class="nav-item" data-view="recepcion" onclick="showView('recepcion')">✅ Por recibir</div>
+    <div class="nav-item" data-view="admin" onclick="showView('admin')">🛠️ Administración</div>
+    <div class="nav-item" data-view="sanciones" onclick="showView('sanciones')">⚠️ Sanciones</div>
+    <div class="nav-spacer"></div>
+    <div class="user-card">
+      <div class="name" id="uc-name">—</div>
+      <div class="role" id="uc-role">—</div>
+      <button class="btn ghost sm" style="margin-top:10px; width:100%;" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="view active" id="view-dashboard">
+      <div class="view-head">
+        <div><h2>Dashboard</h2><div class="sub">Estado general de las transferencias en curso</div></div>
+        <button class="btn ghost sm" onclick="cargarDatos()">↻ Actualizar</button>
+      </div>
+      <div class="grid-cards" id="dash-stats"></div>
+      <div class="panel"><h3>⏱️ Próximas a vencer / vencidas</h3><div id="dash-alert-table"><div class="empty-state">Cargando…</div></div></div>
+    </div>
+
+    <div class="view" id="view-nueva">
+      <div class="view-head"><div><h2>Nueva transferencia (TS)</h2><div class="sub">Se registra como remitente el usuario que ingresó la sesión</div></div></div>
+      <div class="panel">
+        <form id="form-ts" onsubmit="return crearTS(event)">
+          <div class="form-row">
+            <div class="field"><label>Número de TS</label><input type="text" id="ts-numero" placeholder="TS-000123" required></div>
+            <div class="field"><label>Fecha de envío real (si difiere de hoy)</label><input type="date" id="ts-fecha-envio"></div>
+          </div>
+          <div class="form-row three">
+            <div class="field"><label>Bodega origen</label><select id="ts-origen" required></select></div>
+            <div class="field"><label>Bodega destino</label><select id="ts-destino" required></select></div>
+            <div class="field"><label>Número de bultos</label><input type="number" min="1" id="ts-bultos" required></div>
+          </div>
+          <div class="field"><label>Transportista asignado</label><select id="ts-transportista" required></select></div>
+          <div class="form-row">
+            <div class="field"><label>Foto de lo que envía</label><input type="file" accept="image/*" id="ts-foto-envio" required></div>
+            <div class="field"><label>Foto del documento (guía / acta)</label><input type="file" accept="image/*" id="ts-foto-doc" required></div>
+          </div>
+          <div class="help">El plazo de recepción se calcula automáticamente: 2 días bodegas zonales, 7 días provinciales, desde que el transportista marca la entrega al receptor.</div>
+          <button class="btn" style="margin-top:14px;" type="submit">Registrar transferencia</button>
+          <div class="err" id="ts-err"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="view" id="view-historial">
+      <div class="view-head"><div><h2>Historial de envíos</h2><div class="sub">Visible para todos los actores</div></div>
+        <input style="width:220px;" placeholder="Buscar TS…" id="historial-search" oninput="renderHistorial()">
+      </div>
+      <div id="historial-table"><div class="empty-state">Cargando…</div></div>
+    </div>
+
+    <div class="view" id="view-ruta">
+      <div class="view-head"><div><h2>Mi ruta asignada</h2><div class="sub">Fotos de salida, llegada y entrega al receptor</div></div></div>
+      <div id="ruta-list"><div class="empty-state">Cargando…</div></div>
+    </div>
+
+    <div class="view" id="view-recepcion">
+      <div class="view-head"><div><h2>Por recibir</h2><div class="sub">Confirma recepción y sube el documento firmado</div></div></div>
+      <div id="recepcion-list"><div class="empty-state">Cargando…</div></div>
+    </div>
+
+    <div class="view" id="view-admin">
+      <div class="view-head"><div><h2>Administración</h2><div class="sub">Bodegas, transportistas y usuarios</div></div></div>
+      <div class="panel">
+        <h3>🏭 Bodegas</h3>
+        <form onsubmit="return crearBodega(event)" class="form-row three" style="align-items:end;">
+          <div class="field"><label>Nombre</label><input type="text" id="bod-nombre" required></div>
+          <div class="field"><label>Tipo</label><select id="bod-tipo"><option value="zonal">Zonal (2 días)</option><option value="provincial">Provincial (7 días)</option></select></div>
+          <div class="field" style="margin-bottom:14px;"><button class="btn block" type="submit">Añadir bodega</button></div>
+        </form>
+        <div id="bodegas-list"></div>
+      </div>
+      <div class="panel">
+        <h3>🚛 Transportistas</h3>
+        <form onsubmit="return crearTransportista(event)" class="form-row three" style="align-items:end;">
+          <div class="field"><label>Nombre</label><input type="text" id="tr-nombre" required></div>
+          <div class="field"><label>Placa</label><input type="text" id="tr-placa" required></div>
+          <div class="field" style="margin-bottom:14px;"><button class="btn block" type="submit">Añadir transportista</button></div>
+        </form>
+        <div id="transportistas-list"></div>
+      </div>
+      <div class="panel">
+        <h3>👥 Usuarios y roles</h3>
+        <div class="help">Un remitente puede también ser receptor — marca todos los roles que apliquen.</div>
+        <div id="usuarios-list" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-sanciones">
+      <div class="view-head"><div><h2>Reporte de sanciones</h2><div class="sub">Cálculo automático de días de retraso</div></div></div>
+      <div class="grid-cards" id="sanc-stats"></div>
+      <div id="sanciones-table"><div class="empty-state">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modal-ts">
+  <div class="modal">
+    <div class="modal-head"><h3 id="modal-ts-title">TS</h3><button class="modal-close" onclick="cerrarModal()">✕</button></div>
+    <div class="modal-body" id="modal-ts-body" style="padding:22px;"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN — pega aquí la URL de tu Apps Script (/exec)
+   ============================================================ */
+const API_URL = "https://script.google.com/macros/s/AKfycbypHuScnXK6m-ebD09HUQj0Zun1nhexlE9qVzxWPnQFVIqMn1SmjSowynfImZUxEVkN/exec";
+
+/* ============================================================
+   CLIENTE DE LA API (evita el preflight de CORS usando
+   Content-Type: text/plain en los POST — lección ya conocida
+   de tus otros proyectos con Apps Script)
+   ============================================================ */
+function apiGet(action, params={}){
+  const qs = new URLSearchParams({action, ...params}).toString();
+  return fetch(API_URL + '?' + qs).then(r=>r.json());
+}
+function apiPost(payload){
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload)
+  }).then(r=>r.json());
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function driveThumb(id){ return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : ''; }
+function driveView(id){ return id ? `https://drive.google.com/file/d/${id}/view` : ''; }
+
+/* ============================================================
+   ESTADO GLOBAL
+   ============================================================ */
+let currentUser = JSON.parse(localStorage.getItem('tc_user') || 'null');
+let bodegas = [], transportistas = [], usuarios = [], transferencias = [];
+const PLAZO_DIAS = { zonal: 2, provincial: 7 };
+const ESTADOS_LABEL = { creado:"Creado", asignado:"Asignado", en_ruta:"En ruta", entregado_transportista:"Entregado a receptor", confirmado:"Confirmado", con_reclamo:"Con reclamo" };
+
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3200); }
+function fmtDate(iso){ if(!iso) return '—'; const d = new Date(iso); if(isNaN(d)) return '—'; return d.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}); }
+
+/* ============================================================
+   AUTENTICACIÓN
+   ============================================================ */
+function switchAuthTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.getElementById('form-login').style.display = tab==='login' ? 'block':'none';
+  document.getElementById('form-register').style.display = tab==='register' ? 'block':'none';
+}
+function doLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err'); errEl.textContent='Ingresando…';
+  apiPost({action:'login', email, password}).then(res=>{
+    if(!res.ok){ errEl.textContent = res.error; return; }
+    currentUser = res.usuario;
+    localStorage.setItem('tc_user', JSON.stringify(currentUser));
+    entrarApp();
+  }).catch(err=> errEl.textContent = 'No se pudo conectar con el servidor: ' + err.message);
+  return false;
+}
+function doRegister(e){
+  e.preventDefault();
+  const nombre = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-pass').value;
+  const rol = document.getElementById('reg-role').value;
+  const errEl = document.getElementById('register-err'); errEl.textContent='Creando cuenta…';
+  apiPost({action:'register', nombre, email, password, rol}).then(res=>{
+    if(!res.ok){ errEl.textContent = res.error; return; }
+    currentUser = res.usuario;
+    localStorage.setItem('tc_user', JSON.stringify(currentUser));
+    entrarApp();
+  }).catch(err=> errEl.textContent = 'No se pudo conectar con el servidor: ' + err.message);
+  return false;
+}
+function doLogout(){
+  localStorage.removeItem('tc_user');
+  currentUser = null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').classList.remove('show');
+}
+if(currentUser){ window.addEventListener('DOMContentLoaded', entrarApp); }
+
+/* ============================================================
+   ENTRADA A LA APP
+   ============================================================ */
+function entrarApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.add('show');
+  document.getElementById('uc-name').textContent = currentUser.nombre;
+  document.getElementById('uc-role').textContent = (currentUser.roles||'').split(',').join(' · ');
+  const roles = (currentUser.roles||'').split(',').map(r=>r.trim());
+  const esAdmin = roles.includes('admin');
+  toggleNav('nueva', roles.includes('remitente') || esAdmin);
+  toggleNav('ruta', roles.includes('transportista') || esAdmin);
+  toggleNav('recepcion', roles.includes('remitente') || esAdmin);
+  toggleNav('admin', esAdmin);
+  toggleNav('sanciones', esAdmin);
+  cargarDatos();
+}
+function toggleNav(view, visible){ const el = document.querySelector('.nav-item[data-view="'+view+'"]'); if(el) el.style.display = visible ? 'flex' : 'none'; }
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelector('.nav-item[data-view="'+name+'"]').classList.add('active');
+}
+
+/* ============================================================
+   CARGA DE DATOS (sin tiempo real: se refresca al entrar,
+   después de cada acción, y con el botón ↻ Actualizar)
+   ============================================================ */
+function cargarDatos(){
+  apiGet('getData').then(res=>{
+    if(!res.ok){ toast('Error al cargar datos: ' + res.error); return; }
+    bodegas = res.bodegas; transportistas = res.transportistas;
+    usuarios = res.usuarios; transferencias = res.transferencias;
+    renderBodegasSelects(); renderBodegasList();
+    renderTransportistasSelect(); renderTransportistasList();
+    renderUsuariosList();
+    renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones();
+  }).catch(err=> toast('No se pudo conectar con el servidor: ' + err.message));
+}
+
+/* ============================================================
+   PLAZOS Y SANCIONES
+   ============================================================ */
+function calcularPlazo(ts){
+  if(!ts.fechaEntregaTransportista) return null;
+  const base = new Date(ts.fechaEntregaTransportista);
+  const dias = PLAZO_DIAS[ts.bodegaDestinoTipo] || 2;
+  return new Date(base.getTime() + dias*24*60*60*1000);
+}
+function estaVencida(ts){ const p = calcularPlazo(ts); if(!p) return false; return ts.estado!=='confirmado' && new Date() > p; }
+function diasRetraso(ts){
+  const p = calcularPlazo(ts); if(!p) return 0;
+  const fin = ts.fechaConfirmacionReceptor ? new Date(ts.fechaConfirmacionReceptor) : new Date();
+  const diff = Math.ceil((fin - p)/(24*60*60*1000));
+  return diff>0 ? diff : 0;
+}
+function tieneSancionReceptor(ts){ return diasRetraso(ts) > 0; }
+function tieneSancionRemitente(ts){ return diasRetraso(ts) > 0 && !ts.documentoFirmadoId; }
+
+/* ============================================================
+   BODEGAS / TRANSPORTISTAS / USUARIOS (admin)
+   ============================================================ */
+function crearBodega(e){
+  e.preventDefault();
+  apiPost({action:'crearBodega', nombre: document.getElementById('bod-nombre').value.trim(), tipo: document.getElementById('bod-tipo').value})
+    .then(res=>{ if(res.ok){ document.getElementById('bod-nombre').value=''; toast('Bodega añadida'); cargarDatos(); } else toast(res.error); });
+  return false;
+}
+function eliminarBodega(id){ if(!confirm('¿Eliminar bodega?')) return; apiPost({action:'eliminarBodega', id}).then(()=>{ toast('Eliminada'); cargarDatos(); }); }
+function crearTransportista(e){
+  e.preventDefault();
+  apiPost({action:'crearTransportista', nombre: document.getElementById('tr-nombre').value.trim(), placa: document.getElementById('tr-placa').value.trim()})
+    .then(res=>{ if(res.ok){ document.getElementById('tr-nombre').value=''; document.getElementById('tr-placa').value=''; toast('Transportista añadido'); cargarDatos(); } else toast(res.error); });
+  return false;
+}
+function eliminarTransportista(id){ if(!confirm('¿Eliminar transportista?')) return; apiPost({action:'eliminarTransportista', id}).then(()=>{ toast('Eliminado'); cargarDatos(); }); }
+
+function renderBodegasSelects(){
+  ['ts-origen','ts-destino'].forEach(id=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = bodegas.map(b=>`<option value="${b.id}">${b.nombre} (${b.tipo})</option>`).join('');
+    if(cur) sel.value = cur;
+  });
+}
+function renderBodegasList(){
+  const el = document.getElementById('bodegas-list'); if(!el) return;
+  if(!bodegas.length){ el.innerHTML='<div class="help">Sin bodegas registradas.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Tipo</th><th></th></tr></thead><tbody>` +
+    bodegas.map(b=>`<tr><td>${b.nombre}</td><td>${b.tipo}</td><td><button class="btn ghost sm" onclick="eliminarBodega('${b.id}')">Eliminar</button></td></tr>`).join('') + `</tbody></table>`;
+}
+function renderTransportistasSelect(){
+  const sel = document.getElementById('ts-transportista'); if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = transportistas.map(t=>`<option value="${t.id}">${t.nombre} — ${t.placa}</option>`).join('');
+  if(cur) sel.value = cur;
+}
+function renderTransportistasList(){
+  const el = document.getElementById('transportistas-list'); if(!el) return;
+  if(!transportistas.length){ el.innerHTML='<div class="help">Sin transportistas registrados.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Placa</th><th>TS activas</th><th></th></tr></thead><tbody>` +
+    transportistas.map(t=>{
+      const activas = transferencias.filter(x=>String(x.transportistaId)===String(t.id) && x.estado!=='confirmado').length;
+      return `<tr><td>${t.nombre}</td><td class="ts-code">${t.placa}</td><td>${activas}</td><td><button class="btn ghost sm" onclick="eliminarTransportista('${t.id}')">Eliminar</button></td></tr>`;
+    }).join('') + `</tbody></table>`;
+}
+function renderUsuariosList(){
+  const el = document.getElementById('usuarios-list'); if(!el) return;
+  const ROLES = ['remitente','transportista','admin'];
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Correo</th>${ROLES.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>` +
+    usuarios.map(u=>{
+      const roles = (u.roles||'').split(',').map(r=>r.trim());
+      return `<tr><td>${u.nombre}</td><td>${u.email}</td>${ROLES.map(r=>`<td><input type="checkbox" ${roles.includes(r)?'checked':''} onchange="toggleRol('${u.id}','${r}',this.checked)"></td>`).join('')}</tr>`;
+    }).join('') + `</tbody></table>`;
+}
+function toggleRol(uid, rol, checked){ apiPost({action:'toggleRol', uid, rol, checked}).then(()=>cargarDatos()); }
+
+/* ============================================================
+   REMITENTE: crear TS
+   ============================================================ */
+function crearTS(e){
+  e.preventDefault();
+  const errEl = document.getElementById('ts-err'); errEl.textContent='';
+  const numero = document.getElementById('ts-numero').value.trim();
+  const btn = e.target.querySelector('button[type=submit]');
+  const fEnvio = document.getElementById('ts-foto-envio').files[0];
+  const fDoc = document.getElementById('ts-foto-doc').files[0];
+  if(!fEnvio || !fDoc){ errEl.textContent='Debes adjuntar ambas fotos.'; return false; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo evidencias…';
+  Promise.all([fileToBase64(fEnvio), fileToBase64(fDoc)]).then(([b64Envio, b64Doc])=>{
+    return apiPost({
+      action:'crearTS', numero,
+      fechaEnvioReal: document.getElementById('ts-fecha-envio').value || '',
+      bodegaOrigenId: document.getElementById('ts-origen').value,
+      bodegaDestinoId: document.getElementById('ts-destino').value,
+      transportistaId: document.getElementById('ts-transportista').value,
+      numBultos: document.getElementById('ts-bultos').value,
+      remitenteId: currentUser.id, remitenteNombre: currentUser.nombre,
+      fotoEnvioBase64: b64Envio, fotoDocBase64: b64Doc
+    });
+  }).then(res=>{
+    if(!res.ok){ errEl.textContent = res.error; return; }
+    toast('Transferencia ' + numero + ' registrada');
+    e.target.reset();
+    cargarDatos();
+    showView('historial');
+  }).catch(err=> errEl.textContent = 'Error al guardar: ' + err.message)
+    .finally(()=>{ btn.disabled=false; btn.textContent='Registrar transferencia'; });
+  return false;
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  const el = document.getElementById('dash-stats'); if(!el) return;
+  const total = transferencias.length;
+  const enCurso = transferencias.filter(t=>t.estado!=='confirmado').length;
+  const vencidas = transferencias.filter(estaVencida).length;
+  const confirmadas = transferencias.filter(t=>t.estado==='confirmado').length;
+  el.innerHTML = `
+    <div class="stat-card"><div class="num">${total}</div><div class="lbl">TS totales</div></div>
+    <div class="stat-card"><div class="num">${enCurso}</div><div class="lbl">En curso</div></div>
+    <div class="stat-card alert"><div class="num">${vencidas}</div><div class="lbl">Vencidas sin confirmar</div></div>
+    <div class="stat-card ok"><div class="num">${confirmadas}</div><div class="lbl">Confirmadas</div></div>`;
+  const alertList = transferencias.filter(t=>t.estado!=='confirmado' && t.fechaEntregaTransportista)
+    .sort((a,b)=> (calcularPlazo(a)||0) - (calcularPlazo(b)||0));
+  const cont = document.getElementById('dash-alert-table');
+  if(!alertList.length){ cont.innerHTML = '<div class="empty-state">No hay transferencias con el reloj de recepción corriendo.</div>'; return; }
+  cont.innerHTML = `<table><thead><tr><th>TS</th><th>Destino</th><th>Plazo</th><th>Estado</th><th></th></tr></thead><tbody>` +
+    alertList.map(t=>{
+      const vencida = estaVencida(t);
+      const bod = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+      return `<tr class="${vencida?'row-overdue':''}"><td class="ts-code">${t.numeroTS}</td><td>${bod?bod.nombre:'—'}</td><td>${fmtDate(calcularPlazo(t))}</td><td><span class="pill ${t.estado}">${ESTADOS_LABEL[t.estado]}</span></td><td><button class="btn ghost sm" onclick="verTS('${t.id}')">Ver</button></td></tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+/* ============================================================
+   HISTORIAL
+   ============================================================ */
+function renderHistorial(){
+  const el = document.getElementById('historial-table'); if(!el) return;
+  const q = (document.getElementById('historial-search')?.value || '').toLowerCase();
+  const list = transferencias.filter(t => (t.numeroTS||'').toLowerCase().includes(q)).sort((a,b)=> new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+  if(!list.length){ el.innerHTML = '<div class="empty-state"><div class="big">Sin resultados</div>Aún no hay transferencias registradas.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>TS</th><th>Origen → Destino</th><th>Remitente</th><th>Transportista</th><th>Estado</th><th>Creado</th><th></th></tr></thead><tbody>` +
+    list.map(t=>{
+      const o = bodegas.find(b=>String(b.id)===String(t.bodegaOrigenId));
+      const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+      const vencida = estaVencida(t);
+      return `<tr class="${vencida?'row-overdue':''}"><td class="ts-code">${t.numeroTS}</td><td>${o?o.nombre:'—'} → ${d?d.nombre:'—'}</td><td>${t.remitenteNombre||'—'}</td><td>${t.transportistaNombre||'—'}</td><td><span class="pill ${t.estado}">${ESTADOS_LABEL[t.estado]}</span>${vencida?' <span class="pill con_reclamo">Vencida</span>':''}</td><td>${fmtDate(t.fechaCreacion)}</td><td><button class="btn ghost sm" onclick="verTS('${t.id}')">Ver</button></td></tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+/* ============================================================
+   TRANSPORTISTA: mi ruta
+   ============================================================ */
+function renderRuta(){
+  const el = document.getElementById('ruta-list'); if(!el || !currentUser) return;
+  const roles = (currentUser.roles||'').split(',');
+  const misTS = roles.includes('admin')
+    ? transferencias.filter(t=>['asignado','en_ruta'].includes(t.estado))
+    : transferencias.filter(t=>esMiTransportista(t) && ['asignado','en_ruta'].includes(t.estado));
+  if(!misTS.length){ el.innerHTML = '<div class="empty-state"><div class="big">Sin TS pendientes</div>No tienes transferencias asignadas por entregar.</div>'; return; }
+  el.innerHTML = misTS.map(t=>{
+    const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+    return `<div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div><span class="ts-code">${t.numeroTS}</span> · destino <strong>${d?d.nombre:'—'}</strong> · ${t.numBultos} bultos</div>
+        <span class="pill ${t.estado}">${ESTADOS_LABEL[t.estado]}</span>
+      </div>
+      ${t.estado==='asignado' ? `<label>Foto: camión cargado (salida)</label><input type="file" accept="image/*" id="salida-${t.id}"><button class="btn sm" style="margin-top:8px;" onclick="marcarSalida('${t.id}','${t.numeroTS}')">Marcar salida</button>` : ''}
+      ${t.estado==='en_ruta' ? `<label>Foto: camión llegado (destino)</label><input type="file" accept="image/*" id="llegada-${t.id}"><label style="margin-top:10px;">Foto: persona que recibe</label><input type="file" accept="image/*" id="firma-${t.id}"><button class="btn sm" style="margin-top:8px;" onclick="marcarEntrega('${t.id}','${t.numeroTS}')">Entregar al receptor</button><div class="help">Al confirmar se captura la hora exacta y, si el navegador lo permite, la ubicación.</div>` : ''}
+    </div>`;
+  }).join('');
+}
+function esMiTransportista(t){
+  const tr = transportistas.find(x=>String(x.id)===String(t.transportistaId));
+  return tr && tr.nombre === currentUser.nombre;
+}
+function marcarSalida(tsId, numeroTS){
+  const input = document.getElementById('salida-'+tsId);
+  const file = input.files[0];
+  if(!file){ toast('Adjunta la foto de salida'); return; }
+  toast('Subiendo…');
+  fileToBase64(file).then(b64 => apiPost({action:'marcarSalida', tsId, numeroTS, fotoBase64:b64}))
+    .then(res=>{ if(res.ok){ toast('Salida registrada'); cargarDatos(); } else toast(res.error); });
+}
+function marcarEntrega(tsId, numeroTS){
+  const fLlegada = document.getElementById('llegada-'+tsId).files[0];
+  const fFirma = document.getElementById('firma-'+tsId).files[0];
+  if(!fLlegada || !fFirma){ toast('Adjunta ambas fotos de entrega'); return; }
+  const guardar = (lat,lng) => {
+    toast('Subiendo…');
+    Promise.all([fileToBase64(fLlegada), fileToBase64(fFirma)]).then(([b1,b2])=>
+      apiPost({action:'marcarEntrega', tsId, numeroTS, fotoLlegadaBase64:b1, fotoFirmaBase64:b2, lat, lng})
+    ).then(res=>{ if(res.ok){ toast('Entrega registrada. Empieza a correr el plazo del receptor.'); cargarDatos(); } else toast(res.error); });
+  };
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>guardar(pos.coords.latitude,pos.coords.longitude), ()=>guardar('',''), {timeout:4000});
+  } else guardar('','');
+}
+
+/* ============================================================
+   RECEPTOR: confirmar recepción
+   ============================================================ */
+function renderRecepcion(){
+  const el = document.getElementById('recepcion-list'); if(!el || !currentUser) return;
+  const pendientes = transferencias.filter(t=>t.estado==='entregado_transportista');
+  if(!pendientes.length){ el.innerHTML = '<div class="empty-state"><div class="big">Nada por confirmar</div>Cuando el transportista entregue una TS en tu bodega, aparecerá aquí.</div>'; return; }
+  el.innerHTML = pendientes.map(t=>{
+    const vencida = estaVencida(t);
+    return `<div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div><span class="ts-code">${t.numeroTS}</span> · ${t.numBultos} bultos · plazo: ${fmtDate(calcularPlazo(t))}</div>
+        ${vencida?'<span class="pill con_reclamo">Plazo vencido</span>':'<span class="pill asignado">A tiempo</span>'}
+      </div>
+      <label>Documento firmado (respalda al remitente)</label>
+      <input type="file" accept="image/*" id="firmado-${t.id}">
+      <label style="margin-top:10px;">¿Hay faltantes? (opcional)</label>
+      <textarea id="faltantes-${t.id}" rows="2" placeholder="Describe los faltantes si los hay…"></textarea>
+      <button class="btn sm" style="margin-top:10px;" onclick="confirmarRecepcion('${t.id}','${t.numeroTS}')">Confirmar recepción</button>
+    </div>`;
+  }).join('');
+}
+function confirmarRecepcion(tsId, numeroTS){
+  const fFirmado = document.getElementById('firmado-'+tsId).files[0];
+  const faltantes = document.getElementById('faltantes-'+tsId).value.trim();
+  if(!fFirmado){ toast('Sube el documento firmado'); return; }
+  toast('Subiendo…');
+  fileToBase64(fFirmado).then(b64 => apiPost({action:'confirmarRecepcion', tsId, numeroTS, fotoFirmadoBase64:b64, faltantes, receptorId: currentUser.id, receptorNombre: currentUser.nombre}))
+    .then(res=>{ if(res.ok){ toast('Recepción confirmada'); cargarDatos(); } else toast(res.error); });
+}
+
+/* ============================================================
+   SANCIONES
+   ============================================================ */
+function renderSanciones(){
+  const el = document.getElementById('sanciones-table'); if(!el) return;
+  const conRetraso = transferencias.filter(t=> diasRetraso(t) > 0 );
+  const statsEl = document.getElementById('sanc-stats');
+  const sancRemitente = conRetraso.filter(tieneSancionRemitente).length;
+  const sancReceptor = conRetraso.filter(tieneSancionReceptor).length;
+  const conEvidencia = conRetraso.filter(t=>t.documentoFirmadoId).length;
+  statsEl.innerHTML = `
+    <div class="stat-card alert"><div class="num">${conRetraso.length}</div><div class="lbl">TS con retraso</div></div>
+    <div class="stat-card alert"><div class="num">${sancRemitente}</div><div class="lbl">Sanción a remitente</div></div>
+    <div class="stat-card alert"><div class="num">${sancReceptor}</div><div class="lbl">Sanción a receptor</div></div>
+    <div class="stat-card ok"><div class="num">${conEvidencia}</div><div class="lbl">Remitente con evidencia (exento)</div></div>`;
+  if(!conRetraso.length){ el.innerHTML = '<div class="empty-state">Sin sanciones registradas hasta el momento.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>TS</th><th>Días de retraso</th><th>Remitente</th><th>Receptor</th><th>Evidencia remitente</th><th></th></tr></thead><tbody>` +
+    conRetraso.map(t=>`<tr class="row-overdue"><td class="ts-code">${t.numeroTS}</td><td>${diasRetraso(t)}</td><td>${t.remitenteNombre||'—'} ${tieneSancionRemitente(t)?'<span class="pill con_reclamo">Sancionado</span>':'<span class="pill confirmado">Exento</span>'}</td><td>${t.receptorNombre||'—'} ${tieneSancionReceptor(t)?'<span class="pill con_reclamo">Sancionado</span>':''}</td><td>${t.documentoFirmadoId?'Sí':'No'}</td><td><button class="btn ghost sm" onclick="verTS('${t.id}')">Ver</button></td></tr>`).join('') + `</tbody></table>`;
+}
+
+/* ============================================================
+   MODAL DETALLE TS: timeline + fotos + chat interno
+   ============================================================ */
+let chatCache = [];
+function verTS(tsId){
+  const t = transferencias.find(x=>String(x.id)===String(tsId));
+  if(!t) return;
+  document.getElementById('modal-ts-title').textContent = 'TS ' + t.numeroTS;
+  const o = bodegas.find(b=>String(b.id)===String(t.bodegaOrigenId));
+  const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+  const steps = [
+    {label:'Creado', done:true, time:t.fechaCreacion},
+    {label:'Asignado', done:['asignado','en_ruta','entregado_transportista','confirmado','con_reclamo'].includes(t.estado), time:t.fechaCreacion},
+    {label:'En ruta', done:['en_ruta','entregado_transportista','confirmado','con_reclamo'].includes(t.estado), time:null},
+    {label:'Entregado a receptor', done:!!t.fechaEntregaTransportista, time:t.fechaEntregaTransportista},
+    {label:'Confirmado', done:t.estado==='confirmado', late: diasRetraso(t)>0, time:t.fechaConfirmacionReceptor}
+  ];
+  const timelineHTML = `<div class="ts-timeline">` + steps.map((s,i)=>`
+      <div class="tl-node ${s.done?'done':''} ${s.late&&s.done?'late':''}"><div class="tl-dot"></div><div class="tl-label">${s.label}</div><div class="tl-time">${s.time?fmtDate(s.time):''}</div></div>
+      ${i<steps.length-1?`<div class="tl-line ${steps[i+1].done?'done':''}"></div>`:''}`).join('') + `</div>`;
+
+  const fotos = [
+    t.fotoEnvioId && {u:driveThumb(t.fotoEnvioId), full:driveView(t.fotoEnvioId), l:'Envío'},
+    t.fotoDocumentoId && {u:driveThumb(t.fotoDocumentoId), full:driveView(t.fotoDocumentoId), l:'Documento'},
+    t.fotoSalidaId && {u:driveThumb(t.fotoSalidaId), full:driveView(t.fotoSalidaId), l:'Salida'},
+    t.fotoLlegadaId && {u:driveThumb(t.fotoLlegadaId), full:driveView(t.fotoLlegadaId), l:'Llegada'},
+    t.fotoReceptorId && {u:driveThumb(t.fotoReceptorId), full:driveView(t.fotoReceptorId), l:'Receptor'},
+    t.documentoFirmadoId && {u:driveThumb(t.documentoFirmadoId), full:driveView(t.documentoFirmadoId), l:'Firmado'}
+  ].filter(Boolean);
+
+  document.getElementById('modal-ts-body').innerHTML = `
+    <div class="section-eyebrow">Trazabilidad</div>${timelineHTML}
+    <div class="form-row" style="margin-top:18px;">
+      <div><div class="help">Origen → Destino</div><div>${o?o.nombre:'—'} → ${d?d.nombre:'—'}</div></div>
+      <div><div class="help">Transportista</div><div>${t.transportistaNombre||'—'}</div></div>
+      <div><div class="help">Bultos</div><div>${t.numBultos}</div></div>
+      <div><div class="help">Plazo de recepción</div><div>${fmtDate(calcularPlazo(t))}</div></div>
+    </div>
+    ${t.faltantesReportados?`<div class="panel" style="border-color:var(--red); margin-top:14px;"><strong>Reclamo del receptor:</strong><br>${t.faltantesReportados}</div>`:''}
+    <div class="section-eyebrow" style="margin-top:18px;">Evidencia fotográfica</div>
+    <div class="thumb-row">${fotos.map(f=>`<img src="${f.u}" title="${f.l}" onclick="window.open('${f.full}','_blank')">`).join('') || '<span class="help">Sin fotos aún.</span>'}</div>
+    <div class="section-eyebrow" style="margin-top:18px;">Chat interno</div>
+    <div class="chat-box" id="chat-box"><div class="help">Cargando…</div></div>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="chat-input" placeholder="Escribe un mensaje…" onkeydown="if(event.key==='Enter'){enviarMensaje('${t.id}')}">
+      <button class="btn sm" onclick="enviarMensaje('${t.id}')">Enviar</button>
+    </div>`;
+  cargarChat(tsId);
+  document.getElementById('modal-ts').classList.add('show');
+}
+function cerrarModal(){ document.getElementById('modal-ts').classList.remove('show'); }
+function cargarChat(tsId){
+  apiGet('getData').then(res=>{
+    const box = document.getElementById('chat-box'); if(!box) return;
+    const msgs = (res.mensajes||[]).filter(m=>String(m.tsId)===String(tsId)).sort((a,b)=> new Date(a.fecha)-new Date(b.fecha));
+    box.innerHTML = msgs.map(m=>`<div class="chat-msg"><div class="who">${m.autorNombre}</div>${m.texto}<div class="when">${fmtDate(m.fecha)}</div></div>`).join('') || '<div class="help">Sin mensajes aún.</div>';
+    box.scrollTop = box.scrollHeight;
+  });
+}
+function enviarMensaje(tsId){
+  const input = document.getElementById('chat-input');
+  const texto = input.value.trim(); if(!texto) return;
+  input.value='';
+  apiPost({action:'enviarMensaje', tsId, autorId: currentUser.id, autorNombre: currentUser.nombre, texto}).then(()=>cargarChat(tsId));
+}
+</script>
+</body>
+</html>
