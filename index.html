@@ -7,22 +7,10 @@
 
 <style>
 :root{
-  --bg:            #0f1216;
-  --bg-elev:       #171b21;
-  --panel:         #1c2129;
-  --panel-2:       #232933;
-  --line:          #2b323d;
-  --text:          #e7eaee;
-  --muted:         #8b93a1;
-  --amber:         #ff8a34;
-  --teal:          #2dd4bf;
-  --red:           #ef4444;
-  --red-dim:       #3a1f22;
-  --blue:          #5b8def;
-  --font-display:  'Oswald', 'Barlow Condensed', sans-serif;
-  --font-body:     'Inter', system-ui, sans-serif;
-  --font-mono:     'JetBrains Mono', 'Courier New', monospace;
-  --radius: 6px;
+  --bg:#0f1216; --bg-elev:#171b21; --panel:#1c2129; --panel-2:#232933; --line:#2b323d;
+  --text:#e7eaee; --muted:#8b93a1; --amber:#ff8a34; --teal:#2dd4bf; --red:#ef4444; --red-dim:#3a1f22; --blue:#5b8def;
+  --font-display:'Oswald','Barlow Condensed',sans-serif; --font-body:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono','Courier New',monospace;
+  --radius:6px;
 }
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
 *{box-sizing:border-box; margin:0; padding:0;}
@@ -52,6 +40,7 @@ h1,h2,h3{font-family:var(--font-display); font-weight:600; letter-spacing:.01em;
 .btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line);}
 .btn.block{width:100%;}
 .btn.sm{padding:6px 10px; font-size:12px;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
 .err{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
 #app{display:none; min-height:100vh; grid-template-columns:230px 1fr;}
 #app.show{display:grid;}
@@ -82,6 +71,7 @@ h1,h2,h3{font-family:var(--font-display); font-weight:600; letter-spacing:.01em;
 .panel h3{font-size:15px; margin-bottom:14px;}
 .form-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
+.form-row.filters{grid-template-columns:repeat(6,1fr); align-items:end;}
 table{width:100%; border-collapse:collapse; font-size:13px;}
 th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:9px 10px; border-bottom:1px solid var(--line);}
 td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
@@ -123,6 +113,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
 .section-eyebrow{font-family:var(--font-mono); font-size:10.5px; color:var(--amber); letter-spacing:.12em; text-transform:uppercase; margin-bottom:4px;}
 .spinner{display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.25); border-top-color:var(--amber); border-radius:50%; animation:spin .7s linear infinite; margin-right:6px; vertical-align:-2px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.ts-checkbox-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line);}
+.ts-checkbox-row:last-child{border-bottom:none;}
+.map-link{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; margin-top:6px;}
 @media(max-width:820px){
   #app.show{grid-template-columns:1fr;}
   .sidebar{position:fixed; bottom:0; left:0; right:0; top:auto; flex-direction:row; overflow-x:auto; padding:6px; z-index:40; height:64px;}
@@ -130,7 +123,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
   .nav-item{flex-direction:column; gap:2px; padding:6px 12px; font-size:10px; border-left:none; border-top:3px solid transparent; white-space:nowrap;}
   .nav-item.active{border-color:var(--amber);}
   .main{padding:18px 16px 90px;}
-  .form-row,.form-row.three{grid-template-columns:1fr;}
+  .form-row,.form-row.three,.form-row.filters{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -139,10 +132,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <div id="login-screen">
   <div class="hazard-strip" style="position:fixed; top:0;"></div>
   <div class="login-box">
-    <div class="login-head">
-      <div class="eyebrow">Control de Transferencias</div>
-      <h1>TELCONET · Bodegas</h1>
-    </div>
+    <div class="login-head"><div class="eyebrow">Control de Transferencias</div><h1>TELCONET · Bodegas</h1></div>
     <div class="tabs">
       <div class="tab active" data-tab="login" onclick="switchAuthTab('login')">Ingresar</div>
       <div class="tab" data-tab="register" onclick="switchAuthTab('register')">Crear cuenta</div>
@@ -158,17 +148,17 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="field"><label>Nombre completo</label><input type="text" id="reg-name" required></div>
         <div class="field"><label>Correo</label><input type="email" id="reg-email" required></div>
         <div class="field"><label>Contraseña</label><input type="password" id="reg-pass" minlength="4" required></div>
+        <div class="field"><label>Confirmar contraseña</label><input type="password" id="reg-pass2" minlength="4" required></div>
         <div class="field">
-          <label>Rol principal (el administrador puede añadir más luego)</label>
+          <label>Rol</label>
           <select id="reg-role">
             <option value="remitente">Remitente / Receptor de bodega</option>
             <option value="transportista">Transportista</option>
-            <option value="admin">Administrador</option>
           </select>
         </div>
         <button class="btn block" type="submit">Crear cuenta</button>
         <div class="err" id="register-err"></div>
-        <div class="help">Un remitente también puede ser receptor — los roles no son excluyentes.</div>
+        <div class="help">El rol de Administrador solo lo puede otorgar otro administrador, desde el panel de Administración.</div>
       </form>
     </div>
   </div>
@@ -176,15 +166,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <div id="app">
   <div class="sidebar">
-    <div class="brand">
-      <div class="eyebrow">Bodegas · TELCONET</div>
-      <h1>Transferencias</h1>
-    </div>
+    <div class="brand"><div class="eyebrow">Bodegas · TELCONET</div><h1>Transferencias</h1></div>
     <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">📊 Dashboard</div>
     <div class="nav-item" data-view="nueva" onclick="showView('nueva')">📦 Nueva transferencia</div>
     <div class="nav-item" data-view="historial" onclick="showView('historial')">🗂️ Historial</div>
     <div class="nav-item" data-view="ruta" onclick="showView('ruta')">🚚 Mi ruta</div>
     <div class="nav-item" data-view="recepcion" onclick="showView('recepcion')">✅ Por recibir</div>
+    <div class="nav-item" data-view="reportes" onclick="showView('reportes')">📈 Reportes</div>
     <div class="nav-item" data-view="admin" onclick="showView('admin')">🛠️ Administración</div>
     <div class="nav-item" data-view="sanciones" onclick="showView('sanciones')">⚠️ Sanciones</div>
     <div class="nav-spacer"></div>
@@ -196,15 +184,22 @@ tr:hover td{background:rgba(255,255,255,.02);}
   </div>
 
   <div class="main">
+
+    <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
       <div class="view-head">
         <div><h2>Dashboard</h2><div class="sub">Estado general de las transferencias en curso</div></div>
         <button class="btn ghost sm" onclick="cargarDatos()">↻ Actualizar</button>
       </div>
+      <div class="field" style="max-width:280px;">
+        <label>Filtrar por bodega (origen o destino)</label>
+        <select id="dash-bodega-filtro" onchange="renderDashboard()"><option value="">Todas las bodegas</option></select>
+      </div>
       <div class="grid-cards" id="dash-stats"></div>
       <div class="panel"><h3>⏱️ Próximas a vencer / vencidas</h3><div id="dash-alert-table"><div class="empty-state">Cargando…</div></div></div>
     </div>
 
+    <!-- NUEVA TS -->
     <div class="view" id="view-nueva">
       <div class="view-head"><div><h2>Nueva transferencia (TS)</h2><div class="sub">Se registra como remitente el usuario que ingresó la sesión</div></div></div>
       <div class="panel">
@@ -230,23 +225,86 @@ tr:hover td{background:rgba(255,255,255,.02);}
       </div>
     </div>
 
+    <!-- HISTORIAL -->
     <div class="view" id="view-historial">
-      <div class="view-head"><div><h2>Historial de envíos</h2><div class="sub">Visible para todos los actores</div></div>
-        <input style="width:220px;" placeholder="Buscar TS…" id="historial-search" oninput="renderHistorial()">
+      <div class="view-head"><div><h2>Historial de envíos</h2><div class="sub">Visible para todos los actores</div></div></div>
+      <div class="panel">
+        <div class="form-row filters">
+          <div class="field" style="margin-bottom:0;"><label>N° de TS</label><input type="text" id="f-ts" placeholder="TS-…" oninput="renderHistorial()"></div>
+          <div class="field" style="margin-bottom:0;"><label>Origen</label><select id="f-origen" onchange="renderHistorial()"><option value="">Todos</option></select></div>
+          <div class="field" style="margin-bottom:0;"><label>Destino</label><select id="f-destino" onchange="renderHistorial()"><option value="">Todos</option></select></div>
+          <div class="field" style="margin-bottom:0;"><label>Remitente</label><input type="text" id="f-remitente" placeholder="Nombre…" oninput="renderHistorial()"></div>
+          <div class="field" style="margin-bottom:0;"><label>Transportista</label><select id="f-transportista" onchange="renderHistorial()"><option value="">Todos</option></select></div>
+          <div class="field" style="margin-bottom:0;"><label>Estado</label><select id="f-estado" onchange="renderHistorial()">
+            <option value="">Todos</option>
+            <option value="asignado">Asignado</option>
+            <option value="en_ruta">En ruta</option>
+            <option value="entregado_transportista">Entregado a receptor</option>
+            <option value="confirmado">Confirmado</option>
+            <option value="con_reclamo">Con reclamo</option>
+          </select></div>
+        </div>
       </div>
       <div id="historial-table"><div class="empty-state">Cargando…</div></div>
     </div>
 
+    <!-- MI RUTA -->
     <div class="view" id="view-ruta">
-      <div class="view-head"><div><h2>Mi ruta asignada</h2><div class="sub">Fotos de salida, llegada y entrega al receptor</div></div></div>
-      <div id="ruta-list"><div class="empty-state">Cargando…</div></div>
+      <div class="view-head"><div><h2>Mi ruta asignada</h2><div class="sub">Selecciona una o varias TS (por ejemplo, todas las que van en el mismo palet) y sube las fotos una sola vez para todas</div></div></div>
+      <div class="field" style="max-width:280px;">
+        <label>Filtrar por bodega destino</label>
+        <select id="ruta-bodega-filtro" onchange="renderRuta()"><option value="">Todos los destinos</option></select>
+      </div>
+
+      <div class="panel">
+        <h3>📤 Por salir (pendientes de marcar salida)</h3>
+        <div id="ruta-salida-list"><div class="empty-state">Cargando…</div></div>
+        <div id="ruta-salida-actions" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <label>Foto(s) del camión cargado (puedes seleccionar varias)</label>
+          <input type="file" accept="image/*" id="salida-fotos" multiple>
+          <button class="btn sm" style="margin-top:10px;" onclick="marcarSalidaLote()">Marcar salida de las seleccionadas</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🚚 En ruta (pendientes de entregar al receptor)</h3>
+        <div id="ruta-entrega-list"><div class="empty-state">Cargando…</div></div>
+        <div id="ruta-entrega-actions" style="display:none; margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <label>Foto(s) del camión llegado</label>
+          <input type="file" accept="image/*" id="llegada-fotos" multiple>
+          <label style="margin-top:10px;">Foto(s) de la persona que recibe</label>
+          <input type="file" accept="image/*" id="firma-fotos" multiple>
+          <button class="btn sm" style="margin-top:10px;" onclick="marcarEntregaLote()">Entregar seleccionadas al receptor</button>
+          <div class="help">Se captura la hora exacta y, si el navegador lo permite, la ubicación de entrega.</div>
+        </div>
+      </div>
     </div>
 
+    <!-- POR RECIBIR -->
     <div class="view" id="view-recepcion">
       <div class="view-head"><div><h2>Por recibir</h2><div class="sub">Confirma recepción y sube el documento firmado</div></div></div>
+      <div class="field" style="max-width:280px;">
+        <label>Filtrar por bodega destino</label>
+        <select id="recepcion-bodega-filtro" onchange="renderRecepcion()"><option value="">Todos los destinos</option></select>
+      </div>
       <div id="recepcion-list"><div class="empty-state">Cargando…</div></div>
     </div>
 
+    <!-- REPORTES -->
+    <div class="view" id="view-reportes">
+      <div class="view-head"><div><h2>Reportes por bodega</h2><div class="sub">Recepción / no recepción y novedades reportadas</div></div></div>
+      <div class="field" style="max-width:280px;">
+        <label>Bodega destino</label>
+        <select id="rep-bodega" onchange="renderReportes()"><option value="">Todas las bodegas</option></select>
+      </div>
+      <div class="grid-cards" id="rep-stats"></div>
+      <div class="panel">
+        <h3>📋 Historial de novedades / faltantes reportados</h3>
+        <div id="rep-novedades"><div class="empty-state">Cargando…</div></div>
+      </div>
+    </div>
+
+    <!-- ADMINISTRACIÓN -->
     <div class="view" id="view-admin">
       <div class="view-head"><div><h2>Administración</h2><div class="sub">Bodegas, transportistas y usuarios</div></div></div>
       <div class="panel">
@@ -269,16 +327,18 @@ tr:hover td{background:rgba(255,255,255,.02);}
       </div>
       <div class="panel">
         <h3>👥 Usuarios y roles</h3>
-        <div class="help">Un remitente puede también ser receptor — marca todos los roles que apliquen.</div>
+        <div class="help">Solo un administrador puede marcar la casilla "admin" de otro usuario. Un remitente puede también ser receptor.</div>
         <div id="usuarios-list" style="margin-top:10px;"></div>
       </div>
     </div>
 
+    <!-- SANCIONES -->
     <div class="view" id="view-sanciones">
       <div class="view-head"><div><h2>Reporte de sanciones</h2><div class="sub">Cálculo automático de días de retraso</div></div></div>
       <div class="grid-cards" id="sanc-stats"></div>
       <div id="sanciones-table"><div class="empty-state">Cargando…</div></div>
     </div>
+
   </div>
 </div>
 
@@ -293,47 +353,36 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <script>
 /* ============================================================
-   CONFIGURACIÓN — pega aquí la URL de tu Apps Script (/exec)
+   CONFIGURACIÓN
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbypHuScnXK6m-ebD09HUQj0Zun1nhexlE9qVzxWPnQFVIqMn1SmjSowynfImZUxEVkN/exec";
+const API_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT/exec";
 
-/* ============================================================
-   CLIENTE DE LA API (evita el preflight de CORS usando
-   Content-Type: text/plain en los POST — lección ya conocida
-   de tus otros proyectos con Apps Script)
-   ============================================================ */
 function apiGet(action, params={}){
   const qs = new URLSearchParams({action, ...params}).toString();
   return fetch(API_URL + '?' + qs).then(r=>r.json());
 }
 function apiPost(payload){
-  return fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify(payload)
-  }).then(r=>r.json());
+  return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) }).then(r=>r.json());
 }
 function fileToBase64(file){
-  return new Promise((resolve,reject)=>{
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+  return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); });
 }
+function filesToBase64Array(fileList){ return Promise.all(Array.from(fileList).map(fileToBase64)); }
 function driveThumb(id){ return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : ''; }
 function driveView(id){ return id ? `https://drive.google.com/file/d/${id}/view` : ''; }
+function idsToArray(str){ return (str||'').split(',').map(s=>s.trim()).filter(Boolean); }
 
 /* ============================================================
    ESTADO GLOBAL
    ============================================================ */
 let currentUser = JSON.parse(localStorage.getItem('tc_user') || 'null');
-let bodegas = [], transportistas = [], usuarios = [], transferencias = [];
+let bodegas = [], transportistas = [], usuarios = [], transferencias = [], mensajesCache = [];
+let seleccionSalida = new Set(), seleccionEntrega = new Set();
 const PLAZO_DIAS = { zonal: 2, provincial: 7 };
 const ESTADOS_LABEL = { creado:"Creado", asignado:"Asignado", en_ruta:"En ruta", entregado_transportista:"Entregado a receptor", confirmado:"Confirmado", con_reclamo:"Con reclamo" };
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3200); }
-function fmtDate(iso){ if(!iso) return '—'; const d = new Date(iso); if(isNaN(d)) return '—'; return d.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); if(isNaN(d)) return '—'; return d.toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}); }
 
 /* ============================================================
    AUTENTICACIÓN
@@ -361,8 +410,11 @@ function doRegister(e){
   const nombre = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value;
   const password = document.getElementById('reg-pass').value;
+  const password2 = document.getElementById('reg-pass2').value;
   const rol = document.getElementById('reg-role').value;
-  const errEl = document.getElementById('register-err'); errEl.textContent='Creando cuenta…';
+  const errEl = document.getElementById('register-err');
+  if(password !== password2){ errEl.textContent = 'Las contraseñas no coinciden.'; return false; }
+  errEl.textContent='Creando cuenta…';
   apiPost({action:'register', nombre, email, password, rol}).then(res=>{
     if(!res.ok){ errEl.textContent = res.error; return; }
     currentUser = res.usuario;
@@ -372,8 +424,7 @@ function doRegister(e){
   return false;
 }
 function doLogout(){
-  localStorage.removeItem('tc_user');
-  currentUser = null;
+  localStorage.removeItem('tc_user'); currentUser = null;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').classList.remove('show');
 }
@@ -392,11 +443,12 @@ function entrarApp(){
   toggleNav('nueva', roles.includes('remitente') || esAdmin);
   toggleNav('ruta', roles.includes('transportista') || esAdmin);
   toggleNav('recepcion', roles.includes('remitente') || esAdmin);
+  toggleNav('reportes', esAdmin);
   toggleNav('admin', esAdmin);
   toggleNav('sanciones', esAdmin);
   cargarDatos();
 }
-function toggleNav(view, visible){ const el = document.querySelector('.nav-item[data-view="'+view+'"]'); if(el) el.style.display = visible ? 'flex' : 'none'; }
+function toggleNav(view, visible){ const el=document.querySelector('.nav-item[data-view="'+view+'"]'); if(el) el.style.display = visible ? 'flex' : 'none'; }
 function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -405,19 +457,40 @@ function showView(name){
 }
 
 /* ============================================================
-   CARGA DE DATOS (sin tiempo real: se refresca al entrar,
-   después de cada acción, y con el botón ↻ Actualizar)
+   CARGA DE DATOS
    ============================================================ */
 function cargarDatos(){
   apiGet('getData').then(res=>{
     if(!res.ok){ toast('Error al cargar datos: ' + res.error); return; }
     bodegas = res.bodegas; transportistas = res.transportistas;
-    usuarios = res.usuarios; transferencias = res.transferencias;
+    usuarios = res.usuarios; transferencias = res.transferencias; mensajesCache = res.mensajes || [];
+    llenarSelectsBodegas(); llenarSelectFiltroTransportista();
     renderBodegasSelects(); renderBodegasList();
     renderTransportistasSelect(); renderTransportistasList();
     renderUsuariosList();
-    renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones();
+    renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones(); renderReportes();
   }).catch(err=> toast('No se pudo conectar con el servidor: ' + err.message));
+}
+
+function llenarSelectsBodegas(){
+  const ids = ['dash-bodega-filtro','f-origen','f-destino','ruta-bodega-filtro','recepcion-bodega-filtro','rep-bodega'];
+  ids.forEach(id=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const cur = sel.value;
+    const placeholder = sel.options[0]; // conserva "Todas / Todos"
+    sel.innerHTML = '';
+    sel.appendChild(placeholder);
+    bodegas.forEach(b=> sel.appendChild(new Option(b.nombre + ' ('+b.tipo+')', b.id)));
+    sel.value = cur || '';
+  });
+}
+function llenarSelectFiltroTransportista(){
+  const sel = document.getElementById('f-transportista'); if(!sel) return;
+  const cur = sel.value;
+  const placeholder = sel.options[0];
+  sel.innerHTML = ''; sel.appendChild(placeholder);
+  transportistas.forEach(t=> sel.appendChild(new Option(t.nombre, t.id)));
+  sel.value = cur || '';
 }
 
 /* ============================================================
@@ -429,11 +502,11 @@ function calcularPlazo(ts){
   const dias = PLAZO_DIAS[ts.bodegaDestinoTipo] || 2;
   return new Date(base.getTime() + dias*24*60*60*1000);
 }
-function estaVencida(ts){ const p = calcularPlazo(ts); if(!p) return false; return ts.estado!=='confirmado' && new Date() > p; }
+function estaVencida(ts){ const p=calcularPlazo(ts); if(!p) return false; return ts.estado!=='confirmado' && new Date() > p; }
 function diasRetraso(ts){
-  const p = calcularPlazo(ts); if(!p) return 0;
+  const p=calcularPlazo(ts); if(!p) return 0;
   const fin = ts.fechaConfirmacionReceptor ? new Date(ts.fechaConfirmacionReceptor) : new Date();
-  const diff = Math.ceil((fin - p)/(24*60*60*1000));
+  const diff = Math.ceil((fin-p)/(24*60*60*1000));
   return diff>0 ? diff : 0;
 }
 function tieneSancionReceptor(ts){ return diasRetraso(ts) > 0; }
@@ -488,14 +561,21 @@ function renderTransportistasList(){
 }
 function renderUsuariosList(){
   const el = document.getElementById('usuarios-list'); if(!el) return;
+  const soyAdmin = (currentUser.roles||'').includes('admin');
   const ROLES = ['remitente','transportista','admin'];
   el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Correo</th>${ROLES.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>` +
     usuarios.map(u=>{
       const roles = (u.roles||'').split(',').map(r=>r.trim());
-      return `<tr><td>${u.nombre}</td><td>${u.email}</td>${ROLES.map(r=>`<td><input type="checkbox" ${roles.includes(r)?'checked':''} onchange="toggleRol('${u.id}','${r}',this.checked)"></td>`).join('')}</tr>`;
+      return `<tr><td>${u.nombre}</td><td>${u.email}</td>${ROLES.map(r=>{
+        const disabled = (r==='admin' && !soyAdmin) ? 'disabled' : '';
+        return `<td><input type="checkbox" ${roles.includes(r)?'checked':''} ${disabled} onchange="toggleRol('${u.id}','${r}',this.checked)"></td>`;
+      }).join('')}</tr>`;
     }).join('') + `</tbody></table>`;
 }
-function toggleRol(uid, rol, checked){ apiPost({action:'toggleRol', uid, rol, checked}).then(()=>cargarDatos()); }
+function toggleRol(uid, rol, checked){
+  if(rol==='admin' && !(currentUser.roles||'').includes('admin')){ toast('Solo un administrador puede otorgar el rol admin.'); cargarDatos(); return; }
+  apiPost({action:'toggleRol', uid, rol, checked}).then(()=>cargarDatos());
+}
 
 /* ============================================================
    REMITENTE: crear TS
@@ -508,7 +588,6 @@ function crearTS(e){
   const fEnvio = document.getElementById('ts-foto-envio').files[0];
   const fDoc = document.getElementById('ts-foto-doc').files[0];
   if(!fEnvio || !fDoc){ errEl.textContent='Debes adjuntar ambas fotos.'; return false; }
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo evidencias…';
   Promise.all([fileToBase64(fEnvio), fileToBase64(fDoc)]).then(([b64Envio, b64Doc])=>{
     return apiPost({
@@ -524,30 +603,29 @@ function crearTS(e){
   }).then(res=>{
     if(!res.ok){ errEl.textContent = res.error; return; }
     toast('Transferencia ' + numero + ' registrada');
-    e.target.reset();
-    cargarDatos();
-    showView('historial');
+    e.target.reset(); cargarDatos(); showView('historial');
   }).catch(err=> errEl.textContent = 'Error al guardar: ' + err.message)
     .finally(()=>{ btn.disabled=false; btn.textContent='Registrar transferencia'; });
   return false;
 }
 
 /* ============================================================
-   DASHBOARD
+   DASHBOARD (con filtro de bodega)
    ============================================================ */
 function renderDashboard(){
   const el = document.getElementById('dash-stats'); if(!el) return;
-  const total = transferencias.length;
-  const enCurso = transferencias.filter(t=>t.estado!=='confirmado').length;
-  const vencidas = transferencias.filter(estaVencida).length;
-  const confirmadas = transferencias.filter(t=>t.estado==='confirmado').length;
+  const filtroBod = document.getElementById('dash-bodega-filtro').value;
+  const lista = filtroBod ? transferencias.filter(t=> String(t.bodegaOrigenId)===filtroBod || String(t.bodegaDestinoId)===filtroBod) : transferencias;
+  const total = lista.length;
+  const enCurso = lista.filter(t=>t.estado!=='confirmado').length;
+  const vencidas = lista.filter(estaVencida).length;
+  const confirmadas = lista.filter(t=>t.estado==='confirmado').length;
   el.innerHTML = `
     <div class="stat-card"><div class="num">${total}</div><div class="lbl">TS totales</div></div>
     <div class="stat-card"><div class="num">${enCurso}</div><div class="lbl">En curso</div></div>
     <div class="stat-card alert"><div class="num">${vencidas}</div><div class="lbl">Vencidas sin confirmar</div></div>
     <div class="stat-card ok"><div class="num">${confirmadas}</div><div class="lbl">Confirmadas</div></div>`;
-  const alertList = transferencias.filter(t=>t.estado!=='confirmado' && t.fechaEntregaTransportista)
-    .sort((a,b)=> (calcularPlazo(a)||0) - (calcularPlazo(b)||0));
+  const alertList = lista.filter(t=>t.estado!=='confirmado' && t.fechaEntregaTransportista).sort((a,b)=> (calcularPlazo(a)||0) - (calcularPlazo(b)||0));
   const cont = document.getElementById('dash-alert-table');
   if(!alertList.length){ cont.innerHTML = '<div class="empty-state">No hay transferencias con el reloj de recepción corriendo.</div>'; return; }
   cont.innerHTML = `<table><thead><tr><th>TS</th><th>Destino</th><th>Plazo</th><th>Estado</th><th></th></tr></thead><tbody>` +
@@ -559,13 +637,27 @@ function renderDashboard(){
 }
 
 /* ============================================================
-   HISTORIAL
+   HISTORIAL (con panel de filtros)
    ============================================================ */
 function renderHistorial(){
   const el = document.getElementById('historial-table'); if(!el) return;
-  const q = (document.getElementById('historial-search')?.value || '').toLowerCase();
-  const list = transferencias.filter(t => (t.numeroTS||'').toLowerCase().includes(q)).sort((a,b)=> new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-  if(!list.length){ el.innerHTML = '<div class="empty-state"><div class="big">Sin resultados</div>Aún no hay transferencias registradas.</div>'; return; }
+  const fTS = (document.getElementById('f-ts')?.value || '').toLowerCase();
+  const fOrigen = document.getElementById('f-origen')?.value || '';
+  const fDestino = document.getElementById('f-destino')?.value || '';
+  const fRemitente = (document.getElementById('f-remitente')?.value || '').toLowerCase();
+  const fTransportista = document.getElementById('f-transportista')?.value || '';
+  const fEstado = document.getElementById('f-estado')?.value || '';
+
+  const list = transferencias.filter(t =>
+    (t.numeroTS||'').toLowerCase().includes(fTS) &&
+    (!fOrigen || String(t.bodegaOrigenId)===fOrigen) &&
+    (!fDestino || String(t.bodegaDestinoId)===fDestino) &&
+    (t.remitenteNombre||'').toLowerCase().includes(fRemitente) &&
+    (!fTransportista || String(t.transportistaId)===fTransportista) &&
+    (!fEstado || t.estado===fEstado)
+  ).sort((a,b)=> new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+
+  if(!list.length){ el.innerHTML = '<div class="empty-state"><div class="big">Sin resultados</div>Ajusta los filtros o revisa que existan transferencias registradas.</div>'; return; }
   el.innerHTML = `<table><thead><tr><th>TS</th><th>Origen → Destino</th><th>Remitente</th><th>Transportista</th><th>Estado</th><th>Creado</th><th></th></tr></thead><tbody>` +
     list.map(t=>{
       const o = bodegas.find(b=>String(b.id)===String(t.bodegaOrigenId));
@@ -576,60 +668,81 @@ function renderHistorial(){
 }
 
 /* ============================================================
-   TRANSPORTISTA: mi ruta
+   TRANSPORTISTA: mi ruta (selección múltiple + filtro destino)
    ============================================================ */
-function renderRuta(){
-  const el = document.getElementById('ruta-list'); if(!el || !currentUser) return;
-  const roles = (currentUser.roles||'').split(',');
-  const misTS = roles.includes('admin')
-    ? transferencias.filter(t=>['asignado','en_ruta'].includes(t.estado))
-    : transferencias.filter(t=>esMiTransportista(t) && ['asignado','en_ruta'].includes(t.estado));
-  if(!misTS.length){ el.innerHTML = '<div class="empty-state"><div class="big">Sin TS pendientes</div>No tienes transferencias asignadas por entregar.</div>'; return; }
-  el.innerHTML = misTS.map(t=>{
-    const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
-    return `<div class="panel">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div><span class="ts-code">${t.numeroTS}</span> · destino <strong>${d?d.nombre:'—'}</strong> · ${t.numBultos} bultos</div>
-        <span class="pill ${t.estado}">${ESTADOS_LABEL[t.estado]}</span>
-      </div>
-      ${t.estado==='asignado' ? `<label>Foto: camión cargado (salida)</label><input type="file" accept="image/*" id="salida-${t.id}"><button class="btn sm" style="margin-top:8px;" onclick="marcarSalida('${t.id}','${t.numeroTS}')">Marcar salida</button>` : ''}
-      ${t.estado==='en_ruta' ? `<label>Foto: camión llegado (destino)</label><input type="file" accept="image/*" id="llegada-${t.id}"><label style="margin-top:10px;">Foto: persona que recibe</label><input type="file" accept="image/*" id="firma-${t.id}"><button class="btn sm" style="margin-top:8px;" onclick="marcarEntrega('${t.id}','${t.numeroTS}')">Entregar al receptor</button><div class="help">Al confirmar se captura la hora exacta y, si el navegador lo permite, la ubicación.</div>` : ''}
-    </div>`;
-  }).join('');
-}
 function esMiTransportista(t){
   const tr = transportistas.find(x=>String(x.id)===String(t.transportistaId));
   return tr && tr.nombre === currentUser.nombre;
 }
-function marcarSalida(tsId, numeroTS){
-  const input = document.getElementById('salida-'+tsId);
-  const file = input.files[0];
-  if(!file){ toast('Adjunta la foto de salida'); return; }
-  toast('Subiendo…');
-  fileToBase64(file).then(b64 => apiPost({action:'marcarSalida', tsId, numeroTS, fotoBase64:b64}))
-    .then(res=>{ if(res.ok){ toast('Salida registrada'); cargarDatos(); } else toast(res.error); });
+function renderRuta(){
+  const listaSalida = document.getElementById('ruta-salida-list');
+  const listaEntrega = document.getElementById('ruta-entrega-list');
+  if(!listaSalida || !currentUser) return;
+  const roles = (currentUser.roles||'').split(',');
+  const esAdmin = roles.includes('admin');
+  const filtroDestino = document.getElementById('ruta-bodega-filtro').value;
+
+  const base = esAdmin ? transferencias : transferencias.filter(esMiTransportista);
+  const filtradas = filtroDestino ? base.filter(t=> String(t.bodegaDestinoId)===filtroDestino) : base;
+  const porSalir = filtradas.filter(t=>t.estado==='asignado');
+  const enRuta = filtradas.filter(t=>t.estado==='en_ruta');
+
+  const filaHTML = (t, set) => {
+    const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+    return `<div class="ts-checkbox-row">
+      <input type="checkbox" ${set.has(t.id)?'checked':''} onchange="toggleSeleccion('${t.id}', this.checked, '${set===seleccionSalida?'salida':'entrega'}')">
+      <div><span class="ts-code">${t.numeroTS}</span> → ${d?d.nombre:'—'} · ${t.numBultos} bultos</div>
+    </div>`;
+  };
+
+  listaSalida.innerHTML = porSalir.length ? porSalir.map(t=>filaHTML(t, seleccionSalida)).join('') : '<div class="empty-state">Sin TS pendientes de salida.</div>';
+  listaEntrega.innerHTML = enRuta.length ? enRuta.map(t=>filaHTML(t, seleccionEntrega)).join('') : '<div class="empty-state">Sin TS en ruta.</div>';
+  document.getElementById('ruta-salida-actions').style.display = seleccionSalida.size ? 'block' : 'none';
+  document.getElementById('ruta-entrega-actions').style.display = seleccionEntrega.size ? 'block' : 'none';
 }
-function marcarEntrega(tsId, numeroTS){
-  const fLlegada = document.getElementById('llegada-'+tsId).files[0];
-  const fFirma = document.getElementById('firma-'+tsId).files[0];
-  if(!fLlegada || !fFirma){ toast('Adjunta ambas fotos de entrega'); return; }
+function toggleSeleccion(tsId, checked, tipo){
+  const set = tipo==='salida' ? seleccionSalida : seleccionEntrega;
+  checked ? set.add(tsId) : set.delete(tsId);
+  document.getElementById('ruta-'+tipo+'-actions').style.display = set.size ? 'block' : 'none';
+}
+function marcarSalidaLote(){
+  const files = document.getElementById('salida-fotos').files;
+  if(!files.length){ toast('Adjunta al menos una foto'); return; }
+  if(!seleccionSalida.size){ toast('Selecciona al menos una TS'); return; }
+  toast('Subiendo…');
+  filesToBase64Array(files).then(fotosBase64 =>
+    apiPost({action:'marcarSalida', tsIds:[...seleccionSalida], fotosBase64})
+  ).then(res=>{
+    if(res.ok){ toast('Salida registrada para ' + seleccionSalida.size + ' TS'); seleccionSalida.clear(); document.getElementById('salida-fotos').value=''; cargarDatos(); }
+    else toast(res.error);
+  });
+}
+function marcarEntregaLote(){
+  const fLlegada = document.getElementById('llegada-fotos').files;
+  const fFirma = document.getElementById('firma-fotos').files;
+  if(!fLlegada.length || !fFirma.length){ toast('Adjunta fotos de llegada y de la persona que recibe'); return; }
+  if(!seleccionEntrega.size){ toast('Selecciona al menos una TS'); return; }
   const guardar = (lat,lng) => {
     toast('Subiendo…');
-    Promise.all([fileToBase64(fLlegada), fileToBase64(fFirma)]).then(([b1,b2])=>
-      apiPost({action:'marcarEntrega', tsId, numeroTS, fotoLlegadaBase64:b1, fotoFirmaBase64:b2, lat, lng})
-    ).then(res=>{ if(res.ok){ toast('Entrega registrada. Empieza a correr el plazo del receptor.'); cargarDatos(); } else toast(res.error); });
+    Promise.all([filesToBase64Array(fLlegada), filesToBase64Array(fFirma)]).then(([b1,b2])=>
+      apiPost({action:'marcarEntrega', tsIds:[...seleccionEntrega], fotosLlegadaBase64:b1, fotosReceptorBase64:b2, lat, lng})
+    ).then(res=>{
+      if(res.ok){ toast('Entrega registrada para ' + seleccionEntrega.size + ' TS'); seleccionEntrega.clear(); document.getElementById('llegada-fotos').value=''; document.getElementById('firma-fotos').value=''; cargarDatos(); }
+      else toast(res.error);
+    });
   };
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>guardar(pos.coords.latitude,pos.coords.longitude), ()=>guardar('',''), {timeout:4000});
-  } else guardar('','');
+  if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=>guardar(pos.coords.latitude,pos.coords.longitude), ()=>guardar('',''), {timeout:4000}); }
+  else guardar('','');
 }
 
 /* ============================================================
-   RECEPTOR: confirmar recepción
+   RECEPTOR: confirmar recepción (con filtro destino)
    ============================================================ */
 function renderRecepcion(){
   const el = document.getElementById('recepcion-list'); if(!el || !currentUser) return;
-  const pendientes = transferencias.filter(t=>t.estado==='entregado_transportista');
+  const filtroDestino = document.getElementById('recepcion-bodega-filtro').value;
+  let pendientes = transferencias.filter(t=>t.estado==='entregado_transportista');
+  if(filtroDestino) pendientes = pendientes.filter(t=> String(t.bodegaDestinoId)===filtroDestino);
   if(!pendientes.length){ el.innerHTML = '<div class="empty-state"><div class="big">Nada por confirmar</div>Cuando el transportista entregue una TS en tu bodega, aparecerá aquí.</div>'; return; }
   el.innerHTML = pendientes.map(t=>{
     const vencida = estaVencida(t);
@@ -640,7 +753,7 @@ function renderRecepcion(){
       </div>
       <label>Documento firmado (respalda al remitente)</label>
       <input type="file" accept="image/*" id="firmado-${t.id}">
-      <label style="margin-top:10px;">¿Hay faltantes? (opcional)</label>
+      <label style="margin-top:10px;">¿Hay faltantes? (queda guardado en el historial de novedades, en Reportes)</label>
       <textarea id="faltantes-${t.id}" rows="2" placeholder="Describe los faltantes si los hay…"></textarea>
       <button class="btn sm" style="margin-top:10px;" onclick="confirmarRecepcion('${t.id}','${t.numeroTS}')">Confirmar recepción</button>
     </div>`;
@@ -653,6 +766,38 @@ function confirmarRecepcion(tsId, numeroTS){
   toast('Subiendo…');
   fileToBase64(fFirmado).then(b64 => apiPost({action:'confirmarRecepcion', tsId, numeroTS, fotoFirmadoBase64:b64, faltantes, receptorId: currentUser.id, receptorNombre: currentUser.nombre}))
     .then(res=>{ if(res.ok){ toast('Recepción confirmada'); cargarDatos(); } else toast(res.error); });
+}
+
+/* ============================================================
+   REPORTES: recepción/no recepción y novedades por bodega
+   ============================================================ */
+function renderReportes(){
+  const statsEl = document.getElementById('rep-stats');
+  const novEl = document.getElementById('rep-novedades');
+  if(!statsEl) return;
+  const filtroBod = document.getElementById('rep-bodega').value;
+  const lista = filtroBod ? transferencias.filter(t=> String(t.bodegaDestinoId)===filtroBod) : transferencias;
+
+  const totalDestinadas = lista.length;
+  const recibidasATiempo = lista.filter(t=> t.estado==='confirmado' && diasRetraso(t)===0).length;
+  const recibidasTarde = lista.filter(t=> (t.estado==='confirmado'||t.estado==='con_reclamo') && diasRetraso(t)>0).length;
+  const noRecibidas = lista.filter(t=> t.estado!=='confirmado' && t.estado!=='con_reclamo').length;
+  const conReclamo = lista.filter(t=> t.faltantesReportados).length;
+
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="num">${totalDestinadas}</div><div class="lbl">TS destinadas aquí</div></div>
+    <div class="stat-card ok"><div class="num">${recibidasATiempo}</div><div class="lbl">Recibidas a tiempo</div></div>
+    <div class="stat-card alert"><div class="num">${recibidasTarde}</div><div class="lbl">Recibidas tarde</div></div>
+    <div class="stat-card alert"><div class="num">${noRecibidas}</div><div class="lbl">No recibidas / pendientes</div></div>
+    <div class="stat-card alert"><div class="num">${conReclamo}</div><div class="lbl">Con novedad reportada</div></div>`;
+
+  const novedades = lista.filter(t=>t.faltantesReportados).sort((a,b)=> new Date(b.fechaConfirmacionReceptor) - new Date(a.fechaConfirmacionReceptor));
+  if(!novedades.length){ novEl.innerHTML = '<div class="empty-state">Sin novedades reportadas para esta bodega.</div>'; return; }
+  novEl.innerHTML = `<table><thead><tr><th>TS</th><th>Bodega destino</th><th>Receptor</th><th>Fecha</th><th>Novedad</th><th></th></tr></thead><tbody>` +
+    novedades.map(t=>{
+      const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
+      return `<tr><td class="ts-code">${t.numeroTS}</td><td>${d?d.nombre:'—'}</td><td>${t.receptorNombre||'—'}</td><td>${fmtDate(t.fechaConfirmacionReceptor)}</td><td>${t.faltantesReportados}</td><td><button class="btn ghost sm" onclick="verTS('${t.id}')">Ver</button></td></tr>`;
+    }).join('') + `</tbody></table>`;
 }
 
 /* ============================================================
@@ -676,9 +821,8 @@ function renderSanciones(){
 }
 
 /* ============================================================
-   MODAL DETALLE TS: timeline + fotos + chat interno
+   MODAL DETALLE TS
    ============================================================ */
-let chatCache = [];
 function verTS(tsId){
   const t = transferencias.find(x=>String(x.id)===String(tsId));
   if(!t) return;
@@ -696,14 +840,15 @@ function verTS(tsId){
       <div class="tl-node ${s.done?'done':''} ${s.late&&s.done?'late':''}"><div class="tl-dot"></div><div class="tl-label">${s.label}</div><div class="tl-time">${s.time?fmtDate(s.time):''}</div></div>
       ${i<steps.length-1?`<div class="tl-line ${steps[i+1].done?'done':''}"></div>`:''}`).join('') + `</div>`;
 
+  const fotoUnica = (id, label) => id ? [{u:driveThumb(id), full:driveView(id), l:label}] : [];
+  const fotosMultiples = (idsStr, label) => idsToArray(idsStr).map((id,i)=>({u:driveThumb(id), full:driveView(id), l:label+' '+(i+1)}));
   const fotos = [
-    t.fotoEnvioId && {u:driveThumb(t.fotoEnvioId), full:driveView(t.fotoEnvioId), l:'Envío'},
-    t.fotoDocumentoId && {u:driveThumb(t.fotoDocumentoId), full:driveView(t.fotoDocumentoId), l:'Documento'},
-    t.fotoSalidaId && {u:driveThumb(t.fotoSalidaId), full:driveView(t.fotoSalidaId), l:'Salida'},
-    t.fotoLlegadaId && {u:driveThumb(t.fotoLlegadaId), full:driveView(t.fotoLlegadaId), l:'Llegada'},
-    t.fotoReceptorId && {u:driveThumb(t.fotoReceptorId), full:driveView(t.fotoReceptorId), l:'Receptor'},
-    t.documentoFirmadoId && {u:driveThumb(t.documentoFirmadoId), full:driveView(t.documentoFirmadoId), l:'Firmado'}
-  ].filter(Boolean);
+    ...fotoUnica(t.fotoEnvioId,'Envío'), ...fotoUnica(t.fotoDocumentoId,'Documento'),
+    ...fotosMultiples(t.fotoSalidaIds,'Salida'), ...fotosMultiples(t.fotoLlegadaIds,'Llegada'), ...fotosMultiples(t.fotoReceptorIds,'Receptor'),
+    ...fotoUnica(t.documentoFirmadoId,'Firmado')
+  ];
+
+  const mapaHTML = (t.geoLat && t.geoLng) ? `<a class="map-link" href="https://www.google.com/maps?q=${t.geoLat},${t.geoLng}" target="_blank">📍 Ver ubicación de entrega en el mapa</a>` : '';
 
   document.getElementById('modal-ts-body').innerHTML = `
     <div class="section-eyebrow">Trazabilidad</div>${timelineHTML}
@@ -713,6 +858,7 @@ function verTS(tsId){
       <div><div class="help">Bultos</div><div>${t.numBultos}</div></div>
       <div><div class="help">Plazo de recepción</div><div>${fmtDate(calcularPlazo(t))}</div></div>
     </div>
+    ${mapaHTML}
     ${t.faltantesReportados?`<div class="panel" style="border-color:var(--red); margin-top:14px;"><strong>Reclamo del receptor:</strong><br>${t.faltantesReportados}</div>`:''}
     <div class="section-eyebrow" style="margin-top:18px;">Evidencia fotográfica</div>
     <div class="thumb-row">${fotos.map(f=>`<img src="${f.u}" title="${f.l}" onclick="window.open('${f.full}','_blank')">`).join('') || '<span class="help">Sin fotos aún.</span>'}</div>
