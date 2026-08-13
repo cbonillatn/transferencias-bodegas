@@ -355,7 +355,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbypHuScnXK6m-ebD09HUQj0Zun1nhexlE9qVzxWPnQFVIqMn1SmjSowynfImZUxEVkN/exec";
+const API_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT/exec";
 
 function apiGet(action, params={}){
   const qs = new URLSearchParams({action, ...params}).toString();
@@ -649,10 +649,10 @@ function renderHistorial(){
   const fEstado = document.getElementById('f-estado')?.value || '';
 
   const list = transferencias.filter(t =>
-    (t.numeroTS||'').toLowerCase().includes(fTS) &&
+    String(t.numeroTS||'').toLowerCase().includes(fTS) &&
     (!fOrigen || String(t.bodegaOrigenId)===fOrigen) &&
     (!fDestino || String(t.bodegaDestinoId)===fDestino) &&
-    (t.remitenteNombre||'').toLowerCase().includes(fRemitente) &&
+    String(t.remitenteNombre||'').toLowerCase().includes(fRemitente) &&
     (!fTransportista || String(t.transportistaId)===fTransportista) &&
     (!fEstado || t.estado===fEstado)
   ).sort((a,b)=> new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
@@ -873,18 +873,21 @@ function verTS(tsId){
 }
 function cerrarModal(){ document.getElementById('modal-ts').classList.remove('show'); }
 function cargarChat(tsId){
-  apiGet('getData').then(res=>{
-    const box = document.getElementById('chat-box'); if(!box) return;
-    const msgs = (res.mensajes||[]).filter(m=>String(m.tsId)===String(tsId)).sort((a,b)=> new Date(a.fecha)-new Date(b.fecha));
-    box.innerHTML = msgs.map(m=>`<div class="chat-msg"><div class="who">${m.autorNombre}</div>${m.texto}<div class="when">${fmtDate(m.fecha)}</div></div>`).join('') || '<div class="help">Sin mensajes aún.</div>';
-    box.scrollTop = box.scrollHeight;
-  });
+  // Usa el caché ya cargado (rápido) en vez de pedir todos los datos de nuevo al servidor.
+  const box = document.getElementById('chat-box'); if(!box) return;
+  const msgs = mensajesCache.filter(m=>String(m.tsId)===String(tsId)).sort((a,b)=> new Date(a.fecha)-new Date(b.fecha));
+  box.innerHTML = msgs.map(m=>`<div class="chat-msg"><div class="who">${m.autorNombre}</div>${m.texto}<div class="when">${fmtDate(m.fecha)}</div></div>`).join('') || '<div class="help">Sin mensajes aún.</div>';
+  box.scrollTop = box.scrollHeight;
 }
 function enviarMensaje(tsId){
   const input = document.getElementById('chat-input');
   const texto = input.value.trim(); if(!texto) return;
   input.value='';
-  apiPost({action:'enviarMensaje', tsId, autorId: currentUser.id, autorNombre: currentUser.nombre, texto}).then(()=>cargarChat(tsId));
+  // Actualización optimista: se muestra de inmediato mientras se guarda en segundo plano.
+  const mensajeLocal = { id:'tmp_'+Date.now(), tsId, autorId: currentUser.id, autorNombre: currentUser.nombre, texto, fecha: new Date().toISOString() };
+  mensajesCache.push(mensajeLocal);
+  cargarChat(tsId);
+  apiPost({action:'enviarMensaje', tsId, autorId: currentUser.id, autorNombre: currentUser.nombre, texto}).catch(()=> toast('No se pudo enviar el mensaje.'));
 }
 </script>
 </body>
