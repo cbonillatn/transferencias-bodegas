@@ -209,10 +209,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
             <div class="field"><label>Fecha de envío real (si difiere de hoy)</label><input type="date" id="ts-fecha-envio"></div>
           </div>
           <div class="form-row three">
-            <div class="field"><label>Bodega origen</label><select id="ts-origen" required></select></div>
-            <div class="field"><label>Bodega destino</label><select id="ts-destino" required></select></div>
+            <div class="field"><label>Bodega origen</label><select id="ts-origen" onchange="detectarRuta()" required></select></div>
+            <div class="field"><label>Bodega destino</label><select id="ts-destino" onchange="detectarRuta()" required></select></div>
             <div class="field"><label>Número de bultos</label><input type="number" min="1" id="ts-bultos" required></div>
           </div>
+          <div id="ruta-info" class="panel" style="display:none; padding:14px 16px;"></div>
           <div class="field"><label>Transportista asignado</label><select id="ts-transportista" required></select></div>
           <div class="form-row">
             <div class="field"><label>Foto de lo que envía</label><input type="file" accept="image/*" id="ts-foto-envio" required></div>
@@ -309,12 +310,16 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="view-head"><div><h2>Administración</h2><div class="sub">Bodegas, transportistas y usuarios</div></div></div>
       <div class="panel">
         <h3>🏭 Bodegas</h3>
-        <form onsubmit="return crearBodega(event)" class="form-row three" style="align-items:end;">
+        <form onsubmit="return crearBodega(event)" class="form-row" style="align-items:end;">
           <div class="field"><label>Nombre</label><input type="text" id="bod-nombre" required></div>
-          <div class="field"><label>Tipo</label><select id="bod-tipo"><option value="zonal">Zonal (2 días)</option><option value="provincial">Provincial (7 días)</option></select></div>
           <div class="field" style="margin-bottom:14px;"><button class="btn block" type="submit">Añadir bodega</button></div>
         </form>
         <div id="bodegas-list"></div>
+      </div>
+      <div class="panel">
+        <h3>🛣️ Rutas (tipo de plazo por origen → destino)</h3>
+        <div class="help">El tipo (zonal 2 días / provincial 7 días) depende de la ruta, no de la bodega en sí — la misma bodega puede ser zonal para unos orígenes y provincial para otros. Aquí puedes corregir cualquier ruta creada automáticamente al registrar una TS.</div>
+        <div id="rutas-list" style="margin-top:10px;"></div>
       </div>
       <div class="panel">
         <h3>🚛 Transportistas</h3>
@@ -376,7 +381,7 @@ function idsToArray(str){ return (str||'').split(',').map(s=>s.trim()).filter(Bo
    ESTADO GLOBAL
    ============================================================ */
 let currentUser = JSON.parse(localStorage.getItem('tc_user') || 'null');
-let bodegas = [], transportistas = [], usuarios = [], transferencias = [], mensajesCache = [];
+let bodegas = [], transportistas = [], usuarios = [], transferencias = [], mensajesCache = [], rutas = [];
 let seleccionSalida = new Set(), seleccionEntrega = new Set();
 const PLAZO_DIAS = { zonal: 2, provincial: 7 };
 const ESTADOS_LABEL = { creado:"Creado", asignado:"Asignado", en_ruta:"En ruta", entregado_transportista:"Entregado a receptor", confirmado:"Confirmado", con_reclamo:"Con reclamo" };
@@ -463,9 +468,9 @@ function cargarDatos(){
   apiGet('getData').then(res=>{
     if(!res.ok){ toast('Error al cargar datos: ' + res.error); return; }
     bodegas = res.bodegas; transportistas = res.transportistas;
-    usuarios = res.usuarios; transferencias = res.transferencias; mensajesCache = res.mensajes || [];
+    usuarios = res.usuarios; transferencias = res.transferencias; mensajesCache = res.mensajes || []; rutas = res.rutas || [];
     llenarSelectsBodegas(); llenarSelectFiltroTransportista();
-    renderBodegasSelects(); renderBodegasList();
+    renderBodegasSelects(); renderBodegasList(); renderRutasList();
     renderTransportistasSelect(); renderTransportistasList();
     renderUsuariosList();
     renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones(); renderReportes();
@@ -517,7 +522,7 @@ function tieneSancionRemitente(ts){ return diasRetraso(ts) > 0 && !ts.documentoF
    ============================================================ */
 function crearBodega(e){
   e.preventDefault();
-  apiPost({action:'crearBodega', nombre: document.getElementById('bod-nombre').value.trim(), tipo: document.getElementById('bod-tipo').value})
+  apiPost({action:'crearBodega', nombre: document.getElementById('bod-nombre').value.trim()})
     .then(res=>{ if(res.ok){ document.getElementById('bod-nombre').value=''; toast('Bodega añadida'); cargarDatos(); } else toast(res.error); });
   return false;
 }
@@ -534,15 +539,33 @@ function renderBodegasSelects(){
   ['ts-origen','ts-destino'].forEach(id=>{
     const sel = document.getElementById(id); if(!sel) return;
     const cur = sel.value;
-    sel.innerHTML = bodegas.map(b=>`<option value="${b.id}">${b.nombre} (${b.tipo})</option>`).join('');
+    sel.innerHTML = bodegas.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
     if(cur) sel.value = cur;
   });
 }
 function renderBodegasList(){
   const el = document.getElementById('bodegas-list'); if(!el) return;
   if(!bodegas.length){ el.innerHTML='<div class="help">Sin bodegas registradas.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Tipo</th><th></th></tr></thead><tbody>` +
-    bodegas.map(b=>`<tr><td>${b.nombre}</td><td>${b.tipo}</td><td><button class="btn ghost sm" onclick="eliminarBodega('${b.id}')">Eliminar</button></td></tr>`).join('') + `</tbody></table>`;
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th></th></tr></thead><tbody>` +
+    bodegas.map(b=>`<tr><td>${b.nombre}</td><td><button class="btn ghost sm" onclick="eliminarBodega('${b.id}')">Eliminar</button></td></tr>`).join('') + `</tbody></table>`;
+}
+function renderRutasList(){
+  const el = document.getElementById('rutas-list'); if(!el) return;
+  if(!rutas.length){ el.innerHTML='<div class="help">Aún no hay rutas configuradas — se crean automáticamente al registrar la primera TS de cada origen→destino.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Origen</th><th>Destino</th><th>Tipo</th><th></th></tr></thead><tbody>` +
+    rutas.map(r=>{
+      const o = bodegas.find(b=>String(b.id)===String(r.origenId));
+      const d = bodegas.find(b=>String(b.id)===String(r.destinoId));
+      return `<tr><td>${o?o.nombre:'—'}</td><td>${d?d.nombre:'—'}</td><td><select onchange="corregirTipoRuta('${r.id}', this.value)"><option value="zonal" ${r.tipo==='zonal'?'selected':''}>Zonal (2 días)</option><option value="provincial" ${r.tipo==='provincial'?'selected':''}>Provincial (7 días)</option></select></td><td><button class="btn ghost sm" onclick="eliminarRuta('${r.id}')">Eliminar</button></td></tr>`;
+    }).join('') + `</tbody></table>`;
+}
+function eliminarRuta(id){ if(!confirm('¿Eliminar esta ruta? La próxima TS por ese origen→destino volverá a pedir el tipo.')) return; apiPost({action:'eliminarRuta', id}).then(()=>{ toast('Ruta eliminada'); cargarDatos(); }); }
+function corregirTipoRuta(id, tipo){
+  // Recrea la ruta con el tipo corregido (elimina la anterior y crea una nueva)
+  const r = rutas.find(x=>String(x.id)===String(id));
+  if(!r) return;
+  apiPost({action:'eliminarRuta', id}).then(()=> apiPost({action:'crearRuta', origenId:r.origenId, destinoId:r.destinoId, tipo}))
+    .then(()=>{ toast('Ruta actualizada'); cargarDatos(); });
 }
 function renderTransportistasSelect(){
   const sel = document.getElementById('ts-transportista'); if(!sel) return;
@@ -578,12 +601,42 @@ function toggleRol(uid, rol, checked){
 }
 
 /* ============================================================
+   DETECCIÓN DE RUTA (origen → destino): si ya existe, muestra el
+   tipo automáticamente; si es nueva, pide elegirlo una sola vez.
+   ============================================================ */
+function detectarRuta(){
+  const origenId = document.getElementById('ts-origen').value;
+  const destinoId = document.getElementById('ts-destino').value;
+  const cont = document.getElementById('ruta-info');
+  if(!origenId || !destinoId){ cont.style.display='none'; return; }
+  const o = bodegas.find(b=>String(b.id)===origenId);
+  const d = bodegas.find(b=>String(b.id)===destinoId);
+  const ruta = rutas.find(r=> String(r.origenId)===origenId && String(r.destinoId)===destinoId);
+  cont.style.display = 'block';
+  if(ruta){
+    cont.innerHTML = `<div class="section-eyebrow">Ruta ${o?o.nombre:''} → ${d?d.nombre:''}</div>
+      <div>Tipo de plazo: <strong>${ruta.tipo==='provincial' ? 'Provincial (7 días)' : 'Zonal (2 días)'}</strong></div>
+      <input type="hidden" id="ts-tipo-ruta" value="${ruta.tipo}">`;
+  } else {
+    cont.innerHTML = `<div class="section-eyebrow">Ruta nueva: ${o?o.nombre:''} → ${d?d.nombre:''}</div>
+      <div class="help" style="margin-bottom:8px;">Esta ruta no está configurada todavía. Elige el tipo de plazo — se guardará para las futuras TS de este mismo origen→destino.</div>
+      <select id="ts-tipo-ruta" required>
+        <option value="">Selecciona el tipo…</option>
+        <option value="zonal">Zonal (2 días)</option>
+        <option value="provincial">Provincial (7 días)</option>
+      </select>`;
+  }
+}
+
+/* ============================================================
    REMITENTE: crear TS
    ============================================================ */
 function crearTS(e){
   e.preventDefault();
   const errEl = document.getElementById('ts-err'); errEl.textContent='';
   const numero = document.getElementById('ts-numero').value.trim();
+  const tipoRutaEl = document.getElementById('ts-tipo-ruta');
+  if(!tipoRutaEl || !tipoRutaEl.value){ errEl.textContent='Selecciona el tipo de plazo para esta ruta.'; return false; }
   const btn = e.target.querySelector('button[type=submit]');
   const fEnvio = document.getElementById('ts-foto-envio').files[0];
   const fDoc = document.getElementById('ts-foto-doc').files[0];
@@ -595,6 +648,7 @@ function crearTS(e){
       fechaEnvioReal: document.getElementById('ts-fecha-envio').value || '',
       bodegaOrigenId: document.getElementById('ts-origen').value,
       bodegaDestinoId: document.getElementById('ts-destino').value,
+      tipoRuta: tipoRutaEl.value,
       transportistaId: document.getElementById('ts-transportista').value,
       numBultos: document.getElementById('ts-bultos').value,
       remitenteId: currentUser.id, remitenteNombre: currentUser.nombre,
@@ -603,7 +657,7 @@ function crearTS(e){
   }).then(res=>{
     if(!res.ok){ errEl.textContent = res.error; return; }
     toast('Transferencia ' + numero + ' registrada');
-    e.target.reset(); cargarDatos(); showView('historial');
+    e.target.reset(); document.getElementById('ruta-info').style.display='none'; cargarDatos(); showView('historial');
   }).catch(err=> errEl.textContent = 'Error al guardar: ' + err.message)
     .finally(()=>{ btn.disabled=false; btn.textContent='Registrar transferencia'; });
   return false;
