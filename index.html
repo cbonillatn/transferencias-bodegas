@@ -815,6 +815,7 @@ function toggleActivoHoy(transportistaId, activo){
 }
 // Actualiza los cronómetros visibles cada 30s sin recargar todo (evita golpear el servidor)
 setInterval(()=>{
+  if(!currentUser) return; // no hay sesión activa (o se cerró sesión) — no hacer nada
   const flotaVisible = document.getElementById('view-flota')?.classList.contains('active');
   const rutaVisible = document.getElementById('view-ruta')?.classList.contains('active');
   if(flotaVisible) renderFlota();
@@ -825,8 +826,8 @@ setInterval(()=>{
    MI RUTA: widget de estado propio (libre / en ruta / incidencia)
    ============================================================ */
 function renderMiEstado(){
-  const panel = document.getElementById('mi-estado-panel'); if(!panel) return;
-  const miTr = transportistas.find(x=> x.nombre === currentUser.nombre);
+  const panel = document.getElementById('mi-estado-panel'); if(!panel || !currentUser) return;
+  const miTr = transportistas.find(x=> mismoNombre(x.nombre, currentUser.nombre));
   if(!miTr || !miTr.activoHoy){ panel.style.display='none'; return; }
   panel.style.display = 'block';
   const estado = miTr.estadoOperativo || 'libre';
@@ -840,14 +841,14 @@ function renderMiEstado(){
   }
 }
 function reportarIncidencia(){
-  const miTr = transportistas.find(x=> x.nombre === currentUser.nombre);
+  const miTr = transportistas.find(x=> mismoNombre(x.nombre, currentUser.nombre));
   if(!miTr) return;
   const nota = prompt('Cuéntanos brevemente qué pasó (ej. "daño mecánico", "permiso personal")');
   if(nota===null || !nota.trim()) return;
   apiPost({action:'reportarIncidencia', transportistaId: miTr.id, nota: nota.trim()}).then(()=>{ toast('Incidencia reportada'); cargarDatos(); });
 }
 function resolverIncidencia(){
-  const miTr = transportistas.find(x=> x.nombre === currentUser.nombre);
+  const miTr = transportistas.find(x=> mismoNombre(x.nombre, currentUser.nombre));
   if(!miTr) return;
   apiPost({action:'resolverIncidencia', transportistaId: miTr.id}).then(()=>{ toast('Marcado como disponible de nuevo'); cargarDatos(); });
 }
@@ -970,13 +971,16 @@ function descargarHistorialExcel(){
 /* ============================================================
    TRANSPORTISTA: mi ruta (selección múltiple + filtro destino)
    ============================================================ */
+// Compara nombres sin importar mayúsculas ni espacios de más (evita falsos "no encontrado")
+function mismoNombre(a, b){ return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase(); }
+
 function esMiTransportista(t){
   const tr = transportistas.find(x=>String(x.id)===String(t.transportistaId));
-  return tr && tr.nombre === currentUser.nombre;
+  return tr && mismoNombre(tr.nombre, currentUser.nombre);
 }
 // Devuelve el/los id de bodega destino que el admin le asignó a este transportista (como array de strings)
 function destinosDeMiTransportista(){
-  const miTr = transportistas.find(x=> x.nombre === currentUser.nombre);
+  const miTr = transportistas.find(x=> mismoNombre(x.nombre, currentUser.nombre));
   if(!miTr) return [];
   return asignacionesRuta.filter(a=> String(a.transportistaId)===String(miTr.id)).map(a=> String(a.bodegaDestinoId));
 }
@@ -1039,7 +1043,7 @@ function toggleSeleccion(tsId, checked, tipo){
 // El transportista toma las TS que eligió: pasan de "creado" a "asignado" con su propio id
 function tomarSeleccionadas(){
   if(!seleccionDisponibles.size){ toast('Selecciona al menos una TS'); return; }
-  const miTr = transportistas.find(x=> x.nombre === currentUser.nombre);
+  const miTr = transportistas.find(x=> mismoNombre(x.nombre, currentUser.nombre));
   if(!miTr){ toast('No estás registrado como transportista en el catálogo. Pide al admin que te agregue en Administración.'); return; }
   const idsTomadas = [...seleccionDisponibles];
   apiPost({action:'asignarTransportista', tsIds:idsTomadas, transportistaId: miTr.id}).then(res=>{
