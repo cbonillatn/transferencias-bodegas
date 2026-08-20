@@ -548,16 +548,23 @@ function cargarDatos(){
 }
 
 function llenarSelectsBodegas(){
-  const ids = ['dash-bodega-filtro','f-origen','f-destino','ruta-bodega-filtro','recepcion-bodega-filtro','rep-bodega','asig-destino'];
+  const ids = ['dash-bodega-filtro','f-origen','f-destino','ruta-bodega-filtro','recepcion-bodega-filtro','rep-bodega'];
   ids.forEach(id=>{
     const sel = document.getElementById(id); if(!sel) return;
     const cur = sel.value;
     const placeholder = sel.options[0]; // conserva "Todas / Todos"
     sel.innerHTML = '';
-    sel.appendChild(placeholder);
+    if(placeholder) sel.appendChild(placeholder);
     bodegas.forEach(b=> sel.appendChild(new Option(b.nombre, b.id)));
     sel.value = cur || '';
   });
+  // Este select no tiene opción "Todas" (es obligatorio elegir una bodega), se llena directo
+  const selAsig = document.getElementById('asig-destino');
+  if(selAsig){
+    const cur = selAsig.value;
+    selAsig.innerHTML = bodegas.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+    if(cur) selAsig.value = cur;
+  }
 }
 function llenarSelectFiltroTransportista(){
   const sel = document.getElementById('f-transportista'); if(!sel) return;
