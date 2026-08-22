@@ -369,6 +369,19 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="help">Marca quiénes trabajan hoy — así no aparecen en la lista quienes están de vacaciones o de baja.</div>
         <div id="flota-list" style="margin-top:10px;"><div class="empty-state">Cargando…</div></div>
       </div>
+
+      <div class="panel">
+        <h3>🕒 Historial de tiempos de recorrido y de parada</h3>
+        <div class="field" style="max-width:240px;">
+          <label>Periodo</label>
+          <select id="tiempos-periodo-filtro" onchange="renderHistorialTiempos()">
+            <option value="7">Esta semana</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="0">Todo el historial</option>
+          </select>
+        </div>
+        <div id="tiempos-resumen"><div class="empty-state">Cargando…</div></div>
+      </div>
     </div>
 
     <!-- ADMINISTRACIÓN -->
@@ -447,7 +460,7 @@ function idsToArray(str){ return (str||'').split(',').map(s=>s.trim()).filter(Bo
    ESTADO GLOBAL
    ============================================================ */
 let currentUser = JSON.parse(localStorage.getItem('tc_user') || 'null');
-let bodegas = [], transportistas = [], usuarios = [], transferencias = [], mensajesCache = [], rutas = [], asignacionesRuta = [];
+let bodegas = [], transportistas = [], usuarios = [], transferencias = [], mensajesCache = [], rutas = [], asignacionesRuta = [], historialEstados = [];
 let seleccionSalida = new Set(), seleccionEntrega = new Set(), seleccionDisponibles = new Set();
 let historialFiltradoActual = [];
 const PLAZO_DIAS = { zonal: 2, provincial: 7 };
@@ -539,11 +552,12 @@ function cargarDatos(){
     bodegas = res.bodegas; transportistas = res.transportistas;
     usuarios = res.usuarios; transferencias = res.transferencias; mensajesCache = res.mensajes || []; rutas = res.rutas || [];
     asignacionesRuta = res.asignacionesRuta || [];
+    historialEstados = res.historialEstados || [];
     llenarSelectsBodegas(); llenarSelectFiltroTransportista();
     renderBodegasSelects(); renderBodegasList(); renderRutasList();
     renderTransportistasSelect(); renderTransportistasList();
     renderUsuariosList();
-    renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones(); renderReportes(); renderAsignaciones(); renderFlota();
+    renderDashboard(); renderHistorial(); renderRuta(); renderRecepcion(); renderSanciones(); renderReportes(); renderAsignaciones(); renderFlota(); renderHistorialTiempos();
   }).catch(err=> toast('No se pudo conectar con el servidor: ' + err.message));
 }
 
@@ -812,6 +826,48 @@ function renderFlota(){
 }
 function toggleActivoHoy(transportistaId, activo){
   apiPost({action:'activarChoferHoy', transportistaId, activo}).then(()=>{ toast(activo?'Marcado como activo hoy':'Marcado como inactivo hoy'); cargarDatos(); });
+}
+
+/* ============================================================
+   HISTORIAL DE TIEMPOS: recorrido (en_ruta) y parada (libre) por transportista
+   ============================================================ */
+function formatMinutos(min){
+  if(min==null || isNaN(min)) return '—';
+  min = Math.round(min);
+  if(min < 60) return min+' min';
+  const h = Math.floor(min/60), m = min%60;
+  if(h < 24) return h+'h '+m+'min';
+  const d = Math.floor(h/24), hh = h%24;
+  return d+'d '+hh+'h';
+}
+function renderHistorialTiempos(){
+  const cont = document.getElementById('tiempos-resumen'); if(!cont) return;
+  const dias = parseInt(document.getElementById('tiempos-periodo-filtro').value, 10);
+  let eventos = historialEstados;
+  if(dias > 0){
+    const desde = new Date(); desde.setDate(desde.getDate() - dias);
+    eventos = eventos.filter(ev => new Date(ev.inicio) >= desde);
+  }
+  if(!eventos.length){ cont.innerHTML = '<div class="empty-state">Aún no hay historial de tiempos en este periodo.</div>'; return; }
+
+  const porTransportista = {};
+  eventos.forEach(ev=>{
+    const id = String(ev.transportistaId);
+    if(!porTransportista[id]) porTransportista[id] = { enRutaMin:0, libreMin:0, incidenciaMin:0, viajes:0 };
+    const inicio = new Date(ev.inicio);
+    const fin = ev.fin ? new Date(ev.fin) : new Date(); // si sigue abierto, cuenta hasta ahora
+    const minutos = (fin - inicio) / 60000;
+    if(ev.estado==='en_ruta'){ porTransportista[id].enRutaMin += minutos; porTransportista[id].viajes += 1; }
+    else if(ev.estado==='libre'){ porTransportista[id].libreMin += minutos; }
+    else if(ev.estado==='incidencia'){ porTransportista[id].incidenciaMin += minutos; }
+  });
+
+  cont.innerHTML = `<table><thead><tr><th>Transportista</th><th>N° viajes</th><th>Tiempo en ruta</th><th>Tiempo parado (libre)</th><th>Tiempo en incidencia</th></tr></thead><tbody>` +
+    Object.keys(porTransportista).map(id=>{
+      const tr = transportistas.find(t=>String(t.id)===id);
+      const d = porTransportista[id];
+      return `<tr><td>${tr?tr.nombre:'—'}</td><td>${d.viajes}</td><td class="ts-code">${formatMinutos(d.enRutaMin)}</td><td class="ts-code">${formatMinutos(d.libreMin)}</td><td class="ts-code">${formatMinutos(d.incidenciaMin)}</td></tr>`;
+    }).join('') + `</tbody></table>`;
 }
 // Actualiza los cronómetros visibles cada 30s sin recargar todo (evita golpear el servidor)
 setInterval(()=>{
