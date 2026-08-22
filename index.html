@@ -1100,7 +1100,6 @@ function renderRecepcion(){
   let pendientes = transferencias.filter(t=>t.estado==='entregado_transportista');
   if(filtroDestino) pendientes = pendientes.filter(t=> String(t.bodegaDestinoId)===filtroDestino);
   if(!pendientes.length){ el.innerHTML = '<div class="empty-state"><div class="big">Nada por confirmar</div>Cuando el transportista entregue una TS en tu bodega, aparecerá aquí.</div>'; return; }
-  const posiblesReceptores = usuarios.filter(u => (u.roles||'').split(',').map(r=>r.trim()).includes('remitente'));
   el.innerHTML = pendientes.map(t=>{
     const vencida = estaVencida(t);
     const carga = [t.numPalets ? t.numPalets+' palet(s)' : '', t.numBultos ? t.numBultos+' bulto(s)' : ''].filter(Boolean).join(' + ') || 'sin especificar';
@@ -1109,10 +1108,8 @@ function renderRecepcion(){
         <div><span class="ts-code">${t.numeroTS}</span> · ${carga} · plazo: ${fmtDate(calcularPlazo(t))}</div>
         ${vencida?'<span class="pill con_reclamo">Plazo vencido</span>':'<span class="pill asignado">A tiempo</span>'}
       </div>
-      <label>¿Quién recibió?</label>
-      <select id="receptor-${t.id}">
-        ${posiblesReceptores.map(u=>`<option value="${u.id}|${u.nombre}" ${u.id===currentUser.id?'selected':''}>${u.nombre}${u.id===currentUser.id?' (tú)':''}</option>`).join('')}
-      </select>
+      <label>Quién recibe</label>
+      <div class="panel" style="padding:9px 11px; margin-bottom:0; background:var(--panel-2);">👤 ${currentUser.nombre} <span class="help" style="display:inline;">(tú — con la sesión que iniciaste)</span></div>
       <label style="margin-top:10px;">Documento firmado (respalda al remitente)</label>
       <input type="file" accept="image/*" capture="environment" id="firmado-${t.id}">
       <label style="margin-top:10px;">¿Hay faltantes? (queda guardado en el historial de novedades, en Reportes)</label>
@@ -1124,10 +1121,9 @@ function renderRecepcion(){
 function confirmarRecepcion(tsId, numeroTS){
   const fFirmado = document.getElementById('firmado-'+tsId).files[0];
   const faltantes = document.getElementById('faltantes-'+tsId).value.trim();
-  const [receptorId, receptorNombre] = document.getElementById('receptor-'+tsId).value.split('|');
   if(!fFirmado){ toast('Sube el documento firmado'); return; }
   toast('Subiendo…');
-  fileToBase64(fFirmado).then(b64 => apiPost({action:'confirmarRecepcion', tsId, numeroTS, fotoFirmadoBase64:b64, faltantes, receptorId, receptorNombre}))
+  fileToBase64(fFirmado).then(b64 => apiPost({action:'confirmarRecepcion', tsId, numeroTS, fotoFirmadoBase64:b64, faltantes, receptorId: currentUser.id, receptorNombre: currentUser.nombre}))
     .then(res=>{ if(res.ok){ toast('Recepción confirmada'); cargarDatos(); } else toast(res.error); });
 }
 
