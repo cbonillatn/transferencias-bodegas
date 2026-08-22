@@ -327,6 +327,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <input type="file" accept="image/*" capture="environment" id="llegada-fotos" multiple>
           <label style="margin-top:10px;">Foto(s) de la persona que recibe</label>
           <input type="file" accept="image/*" capture="environment" id="firma-fotos" multiple>
+          <label style="margin-top:10px;">Firma electrónica de quien recibe</label>
+          <div class="help" style="margin-bottom:6px;">Pásale el celular a la persona que recibe para que firme con el dedo dentro del recuadro.</div>
+          <canvas id="firma-canvas" style="background:#fff; border-radius:6px; border:1px solid var(--line); width:100%; height:150px; touch-action:none; cursor:crosshair; display:block;"></canvas>
+          <button type="button" class="btn ghost sm" style="margin-top:8px;" onclick="limpiarFirma()">🧹 Limpiar firma</button>
           <button class="btn sm" style="margin-top:10px;" onclick="marcarEntregaLote()">Entregar seleccionadas al receptor</button>
           <div class="help">Se captura la hora exacta y, si el navegador lo permite, la ubicación de entrega.</div>
         </div>
@@ -439,7 +443,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbypHuScnXK6m-ebD09HUQj0Zun1nhexlE9qVzxWPnQFVIqMn1SmjSowynfImZUxEVkN/exec";
+const API_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT/exec";
 
 function apiGet(action, params={}){
   const qs = new URLSearchParams({action, ...params}).toString();
@@ -1089,6 +1093,7 @@ function renderRuta(){
   listaEntrega.innerHTML = enRuta.length ? enRuta.map(t=>filaHTML(t, seleccionEntrega, 'entrega')).join('') : '<div class="empty-state">Sin TS en ruta.</div>';
   document.getElementById('ruta-salida-actions').style.display = seleccionSalida.size ? 'block' : 'none';
   document.getElementById('ruta-entrega-actions').style.display = seleccionEntrega.size ? 'block' : 'none';
+  initFirmaCanvas();
 }
 function toggleSeleccion(tsId, checked, tipo){
   const set = tipo==='salida' ? seleccionSalida : (tipo==='entrega' ? seleccionEntrega : seleccionDisponibles);
@@ -1111,6 +1116,52 @@ function tomarSeleccionadas(){
     } else toast(res.error);
   });
 }
+/* ============================================================
+   FIRMA ELECTRÓNICA: lienzo táctil/mouse para que el receptor firme con el dedo
+   ============================================================ */
+let firmaCtx = null, firmaDibujando = false, firmaVacia = true;
+function initFirmaCanvas(){
+  const canvas = document.getElementById('firma-canvas');
+  if(!canvas || canvas.dataset.init) return; // ya inicializado, no repetir listeners
+  canvas.dataset.init = '1';
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(rect.width, 300) * ratio;
+  canvas.height = 150 * ratio;
+  firmaCtx = canvas.getContext('2d');
+  firmaCtx.scale(ratio, ratio);
+  firmaCtx.lineWidth = 2.2;
+  firmaCtx.lineCap = 'round';
+  firmaCtx.lineJoin = 'round';
+  firmaCtx.strokeStyle = '#12151a';
+
+  const posicion = (e)=>{
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  const iniciar = (e)=>{ e.preventDefault(); firmaDibujando = true; firmaVacia = false; const p = posicion(e); firmaCtx.beginPath(); firmaCtx.moveTo(p.x, p.y); };
+  const mover = (e)=>{ if(!firmaDibujando) return; e.preventDefault(); const p = posicion(e); firmaCtx.lineTo(p.x, p.y); firmaCtx.stroke(); };
+  const terminar = ()=>{ firmaDibujando = false; };
+
+  canvas.addEventListener('mousedown', iniciar);
+  canvas.addEventListener('mousemove', mover);
+  window.addEventListener('mouseup', terminar);
+  canvas.addEventListener('touchstart', iniciar, {passive:false});
+  canvas.addEventListener('touchmove', mover, {passive:false});
+  canvas.addEventListener('touchend', terminar);
+}
+function limpiarFirma(){
+  const canvas = document.getElementById('firma-canvas'); if(!canvas || !firmaCtx) return;
+  firmaCtx.clearRect(0, 0, canvas.width, canvas.height);
+  firmaVacia = true;
+}
+function firmaComoBase64(){
+  const canvas = document.getElementById('firma-canvas');
+  if(!canvas || firmaVacia) return null;
+  return canvas.toDataURL('image/png');
+}
+
 function marcarSalidaLote(){
   const files = document.getElementById('salida-fotos').files;
   if(!files.length){ toast('Adjunta al menos una foto'); return; }
@@ -1132,15 +1183,23 @@ function marcarSalidaLote(){
 function marcarEntregaLote(){
   const fLlegada = document.getElementById('llegada-fotos').files;
   const fFirma = document.getElementById('firma-fotos').files;
+  const firmaDigital = firmaComoBase64();
   if(!fLlegada.length || !fFirma.length){ toast('Adjunta fotos de llegada y de la persona que recibe'); return; }
+  if(!firmaDigital){ toast('Pide a quien recibe que firme en el recuadro antes de confirmar'); return; }
   if(!seleccionEntrega.size){ toast('Selecciona al menos una TS'); return; }
   const guardar = (lat,lng) => {
     toast('Subiendo…');
     Promise.all([filesToBase64Array(fLlegada), filesToBase64Array(fFirma)]).then(([b1,b2])=>
-      apiPost({action:'marcarEntrega', tsIds:[...seleccionEntrega], fotosLlegadaBase64:b1, fotosReceptorBase64:b2, lat, lng})
+      apiPost({action:'marcarEntrega', tsIds:[...seleccionEntrega], fotosLlegadaBase64:b1, fotosReceptorBase64:b2, firmaBase64:firmaDigital, lat, lng})
     ).then(res=>{
-      if(res.ok){ toast('Entrega registrada para ' + seleccionEntrega.size + ' TS'); seleccionEntrega.clear(); document.getElementById('llegada-fotos').value=''; document.getElementById('firma-fotos').value=''; cargarDatos(); }
-      else toast(res.error);
+      if(res.ok){
+        toast('Entrega registrada para ' + seleccionEntrega.size + ' TS');
+        seleccionEntrega.clear();
+        document.getElementById('llegada-fotos').value='';
+        document.getElementById('firma-fotos').value='';
+        limpiarFirma();
+        cargarDatos();
+      } else toast(res.error);
     });
   };
   if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=>guardar(pos.coords.latitude,pos.coords.longitude), ()=>guardar('',''), {timeout:4000}); }
@@ -1260,7 +1319,7 @@ function verTS(tsId){
   const fotos = [
     ...fotoUnica(t.fotoEnvioId,'Envío'), ...fotoUnica(t.fotoDocumentoId,'Documento'),
     ...fotosMultiples(t.fotoSalidaIds,'Salida'), ...fotosMultiples(t.fotoLlegadaIds,'Llegada'), ...fotosMultiples(t.fotoReceptorIds,'Receptor'),
-    ...fotoUnica(t.documentoFirmadoId,'Firma de recepción (respaldo)')
+    ...fotoUnica(t.documentoFirmadoId,'Firma de recepción (respaldo)'), ...fotoUnica(t.firmaDigitalId,'Firma electrónica')
   ];
 
   const mapaHTML = (t.geoLat && t.geoLng) ? `<a class="map-link" href="https://www.google.com/maps?q=${t.geoLat},${t.geoLng}" target="_blank">📍 Ver ubicación de entrega en el mapa</a>` : '';
