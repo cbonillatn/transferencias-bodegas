@@ -393,11 +393,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="view-head"><div><h2>Administración</h2><div class="sub">Bodegas, transportistas y usuarios</div></div></div>
       <div class="panel">
         <h3>🏭 Bodegas</h3>
-        <form onsubmit="return crearBodega(event)" class="form-row" style="align-items:end;">
+        <form onsubmit="return crearBodega(event)" class="form-row three" style="align-items:end;">
           <div class="field"><label>Nombre</label><input type="text" id="bod-nombre" required></div>
+          <div class="field"><label>Dirección</label><input type="text" id="bod-direccion" placeholder="Calle, número, ciudad…"></div>
           <div class="field" style="margin-bottom:14px;"><button class="btn block" type="submit">Añadir bodega</button></div>
         </form>
-        <div id="bodegas-list"></div>
+        <div class="help">La dirección es opcional, pero sin ella no se puede calcular el tiempo estimado de recorrido en Google Maps.</div>
+        <div id="bodegas-list" style="margin-top:10px;"></div>
       </div>
       <div class="panel">
         <h3>🛣️ Rutas (tipo de plazo por origen → destino)</h3>
@@ -459,6 +461,13 @@ function filesToBase64Array(fileList){ return Promise.all(Array.from(fileList).m
 function driveThumb(id){ return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : ''; }
 function driveView(id){ return id ? `https://drive.google.com/file/d/${id}/view` : ''; }
 function idsToArray(str){ return (str||'').split(',').map(s=>s.trim()).filter(Boolean); }
+// Enlace directo a Google Maps con la ruta cargada (tiempo estimado en tiempo real, sin API ni costo)
+function mapsLink(origenId, destinoId){
+  const o = bodegas.find(b=>String(b.id)===String(origenId));
+  const d = bodegas.find(b=>String(b.id)===String(destinoId));
+  if(!o || !d || !o.direccion || !d.direccion) return null;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o.direccion)}&destination=${encodeURIComponent(d.direccion)}&travelmode=driving`;
+}
 
 /* ============================================================
    ESTADO GLOBAL
@@ -594,20 +603,42 @@ function llenarSelectFiltroTransportista(){
 }
 
 /* ============================================================
-   PLAZOS Y SANCIONES
+   PLAZOS Y SANCIONES (en días LABORALES — sábado y domingo no cuentan)
    ============================================================ */
+// Suma N días hábiles a una fecha, saltándose sábados (6) y domingos (0)
+function sumarDiasLaborales(fechaInicio, diasLaborales){
+  const resultado = new Date(fechaInicio);
+  let sumados = 0;
+  while(sumados < diasLaborales){
+    resultado.setDate(resultado.getDate() + 1);
+    const dow = resultado.getDay();
+    if(dow !== 0 && dow !== 6) sumados++;
+  }
+  return resultado;
+}
+// Cuenta cuántos días hábiles hay entre dos fechas (para el retraso)
+function diasLaboralesEntre(fechaInicio, fechaFin){
+  if(fechaFin <= fechaInicio) return 0;
+  let contador = 0;
+  const cursor = new Date(fechaInicio);
+  while(cursor < fechaFin){
+    cursor.setDate(cursor.getDate() + 1);
+    const dow = cursor.getDay();
+    if(dow !== 0 && dow !== 6) contador++;
+  }
+  return contador;
+}
 function calcularPlazo(ts){
   if(!ts.fechaEntregaTransportista) return null;
   const base = new Date(ts.fechaEntregaTransportista);
   const dias = PLAZO_DIAS[ts.bodegaDestinoTipo] || 2;
-  return new Date(base.getTime() + dias*24*60*60*1000);
+  return sumarDiasLaborales(base, dias);
 }
 function estaVencida(ts){ const p=calcularPlazo(ts); if(!p) return false; return ts.estado!=='confirmado' && new Date() > p; }
 function diasRetraso(ts){
   const p=calcularPlazo(ts); if(!p) return 0;
   const fin = ts.fechaConfirmacionReceptor ? new Date(ts.fechaConfirmacionReceptor) : new Date();
-  const diff = Math.ceil((fin-p)/(24*60*60*1000));
-  return diff>0 ? diff : 0;
+  return diasLaboralesEntre(p, fin);
 }
 function tieneSancionReceptor(ts){ return diasRetraso(ts) > 0; }
 function tieneSancionRemitente(ts){ return diasRetraso(ts) > 0 && !ts.documentoFirmadoId; }
@@ -617,8 +648,8 @@ function tieneSancionRemitente(ts){ return diasRetraso(ts) > 0 && !ts.documentoF
    ============================================================ */
 function crearBodega(e){
   e.preventDefault();
-  apiPost({action:'crearBodega', nombre: document.getElementById('bod-nombre').value.trim()})
-    .then(res=>{ if(res.ok){ document.getElementById('bod-nombre').value=''; toast('Bodega añadida'); cargarDatos(); } else toast(res.error); });
+  apiPost({action:'crearBodega', nombre: document.getElementById('bod-nombre').value.trim(), direccion: document.getElementById('bod-direccion').value.trim()})
+    .then(res=>{ if(res.ok){ document.getElementById('bod-nombre').value=''; document.getElementById('bod-direccion').value=''; toast('Bodega añadida'); cargarDatos(); } else toast(res.error); });
   return false;
 }
 function eliminarBodega(id){ if(!confirm('¿Eliminar bodega?')) return; apiPost({action:'eliminarBodega', id}).then(()=>{ toast('Eliminada'); cargarDatos(); }); }
@@ -641,8 +672,8 @@ function renderBodegasSelects(){
 function renderBodegasList(){
   const el = document.getElementById('bodegas-list'); if(!el) return;
   if(!bodegas.length){ el.innerHTML='<div class="help">Sin bodegas registradas.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Nombre</th><th></th></tr></thead><tbody>` +
-    bodegas.map(b=>`<tr><td>${b.nombre}</td><td><button class="btn ghost sm" onclick="eliminarBodega('${b.id}')">Eliminar</button></td></tr>`).join('') + `</tbody></table>`;
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Dirección</th><th></th></tr></thead><tbody>` +
+    bodegas.map(b=>`<tr><td>${b.nombre}</td><td>${b.direccion||'<span class="help">Sin dirección</span>'}</td><td><button class="btn ghost sm" onclick="eliminarBodega('${b.id}')">Eliminar</button></td></tr>`).join('') + `</tbody></table>`;
 }
 function renderRutasList(){
   const el = document.getElementById('rutas-list'); if(!el) return;
@@ -1083,9 +1114,14 @@ function renderRuta(){
   const filaHTML = (t, set, tipo) => {
     const d = bodegas.find(b=>String(b.id)===String(t.bodegaDestinoId));
     const carga = [t.numPalets ? t.numPalets+' palet(s)' : '', t.numBultos ? t.numBultos+' bulto(s)' : ''].filter(Boolean).join(' + ') || 'sin especificar carga';
+    // El tiempo estimado de llegada solo aplica al momento de salir (aún no ha viajado)
+    const link = tipo==='salida' ? mapsLink(t.bodegaOrigenId, t.bodegaDestinoId) : null;
     return `<div class="ts-checkbox-row">
       <input type="checkbox" ${set.has(t.id)?'checked':''} onchange="toggleSeleccion('${t.id}', this.checked, '${tipo}')">
-      <div><span class="ts-code">${t.numeroTS}</span> → ${d?d.nombre:'—'} · ${carga}</div>
+      <div>
+        <div><span class="ts-code">${t.numeroTS}</span> → ${d?d.nombre:'—'} · ${carga}</div>
+        ${link?`<a class="map-link" href="${link}" target="_blank">🗺️ Ver tiempo estimado de llegada</a>`:''}
+      </div>
     </div>`;
   };
 
